@@ -1,11 +1,15 @@
 
 ' FreeBasic Miner 1.0 - 2011
-' Modified by R. Chastain
+' Modified by Roland Chastain
 
 #include once "fbgfx.bi"
 #include once "file.bi"
-'#include once "windows.bi"
-'#include once "win\mmsystem.bi"
+#ifdef __FB_WIN32__
+#include once "windows.bi"
+#include once "win\mmsystem.bi"
+#else
+#define DWord uinteger
+#endif
 #if __fb_lang__ = "fb"
 using FB
 #endif
@@ -112,7 +116,6 @@ enum  'Status do editor
 end enum
 
 'Som
-#define DWord uinteger
 type TSons
   COn1  as DWord
   COn2  as DWord
@@ -278,7 +281,6 @@ declare function ProximaTeclaDemo () as string
 declare sub LoadBar (perc as integer)
 declare sub RegravaConfig
 declare function LeTXT (Idioma as string) as integer
-'declare sub LeTXTBase
 declare sub ProcIdiomas ()
 declare sub DesFundo
 declare sub VeSeGanhaVida (Acrescimo as integer)
@@ -325,7 +327,10 @@ dim shared TopPt (10) as Recorde
 dim shared as integer ConfirmDel
 
 'Sons
-'Dim Shared hMidiOut As HMIDIOUT
+#ifdef __FB_WIN32__
+dim shared hMidiOut as HMIDIOUT
+#else
+#endif
 dim shared as TSons Som (1 to 6, 1 to 4), SomEx (1 to 7)
 dim shared as ubyte Toca (1 to 6, 1 to 4), QtdNotasVenceu
 dim shared as DWord UltNotaGameOver, resposta
@@ -857,14 +862,17 @@ PontoTesouro (21) = 25
 PontoTesouro (22) = 30
 
 'Inicializa MIDI
-'If midiOutOpen( @hMidiOut, MIDI_MAPPER, 0, 0, CALLBACK_NULL) Then
+#ifdef __FB_WIN32__
+if midiOutOpen( @hMidiOut, MIDI_MAPPER, 0, 0, CALLBACK_NULL) then
   cls
   draw string (10, 20), TXT (1)
   draw string (10, 50), TXT (50)
   LimpaTeclado
-  'If hMidiOut <> 0 Then midiOutClose hMidiOut
-  'End
-'End If
+  if hMidiOut <> 0 then midiOutClose hMidiOut
+  end
+end if
+#else
+#endif
 
 LoadBar 25
 sleep 2, 1
@@ -1225,7 +1233,10 @@ Joga
 '-----------------------------------------
 
 'Libera canais de som e memória alocada para imagens
-'If hMidiOut <> 0 Then midiOutClose hMidiOut
+#ifdef __FB_WIN32__
+if hMidiOut <> 0 then midiOutClose hMidiOut
+#else
+#endif
 for f= 0 to 277
   imagedestroy BMP (f)
 next
@@ -2023,14 +2034,20 @@ sub Joga
     'Silencia canais que terminaram de reproduzir sons
     for f = 1 to 6
       for g = 1 to 4
-        if Som (f, g). Tempo > 0 then
-          Som (f, g). Tempo -=1
-          'If Som (f, g). Tempo = 0 Then midiOutShortMsg (hMidiOut, Som(f,g).COff)
+        if Som (f, g).Tempo > 0 then
+          Som (f, g).Tempo -=1
+#ifdef __FB_WIN32__
+          if Som (f, g).Tempo = 0 then midiOutShortMsg (hMidiOut, Som(f,g).COff)
+#else
+#endif
         end if
       next
       if SomEx (f).Tempo > 0 then
         SomEx (f).Tempo -= 1
-        'If SomEx (f).Tempo = 0 Then midiOutShortMsg (hMidiOut, SomEx(f).COff)
+#ifdef __FB_WIN32__
+        if SomEx (f).Tempo = 0 then midiOutShortMsg (hMidiOut, SomEx(f).COff)
+#else
+#endif
       end if
     next
 
@@ -2040,9 +2057,9 @@ sub Joga
     end if
 
     'Não há som a reproduzir
-    for f=1 to 6
-      for g= 1 to 4
-        Toca(f,g)=0
+    for f =1 to 6
+      for g = 1 to 4
+        Toca(f, g) = 0
       next
     next
 
@@ -2056,8 +2073,8 @@ sub Joga
     end with
 
     'Lê o teclado
-    UltTecla= Tecla
-    Tecla=""
+    UltTecla = Tecla
+    Tecla = ""
     'Controles
     for F = 0 to 127
       if multikey (f) then Tecla = "?"
@@ -2101,10 +2118,16 @@ sub Joga
         if (MouseY > 300) and (MouseY < 363) and (MouseX > 48 + F * 80) and (MouseX < 111 + F * 80) then
           MouseSobre = F
           if (MouseMoveu = 1) and (OpMenu <> F) then
-            'midiOutShortMsg (hMidiOut, &H7f4080 + (OpMenu * 256))
+#ifdef __FB_WIN32__
+            midiOutShortMsg (hMidiOut, &H7f4080 + (OpMenu * 256))
+#else
+#endif
             OpMenu = F
-            'midiOutShortMsg (hMidiOut, &H76c0)
-            'midiOutShortMsg (hMidiOut, &H7f4090 + (OpMenu * 256))
+#ifdef __FB_WIN32__
+            midiOutShortMsg (hMidiOut, &H76c0)
+            midiOutShortMsg (hMidiOut, &H7f4090 + (OpMenu * 256))
+#else
+#endif
           end if
         end if
         if OpMenu = F then
@@ -2123,15 +2146,27 @@ sub Joga
       if UltTecla <> Tecla then
 
         if Tecla = "D" or tecla = "R" then
-          'midiOutShortMsg (hMidiOut, &H7f4080 + (OpMenu * 256))
+#ifdef __FB_WIN32__
+          midiOutShortMsg (hMidiOut, &H7f4080 + (OpMenu * 256))
+#else
+#endif
           OpMenu = (Opmenu + 1) mod (Sair + 1)
-          'midiOutShortMsg (hMidiOut, &H76c0)
-          'midiOutShortMsg (hMidiOut, &H7f4090 + (OpMenu * 256))
+#ifdef __FB_WIN32__
+          midiOutShortMsg (hMidiOut, &H76c0)
+          midiOutShortMsg (hMidiOut, &H7f4090 + (OpMenu * 256))
+#else
+#endif
         elseif Tecla = "U" or Tecla = "L" then
-          'midiOutShortMsg (hMidiOut, &H7f4080 + (OpMenu * 256))
+#ifdef __FB_WIN32__
+          midiOutShortMsg (hMidiOut, &H7f4080 + (OpMenu * 256))
+#else
+#endif
           OpMenu = (OpMenu + Sair) mod (Sair + 1)
-          'midiOutShortMsg (hMidiOut, &H76c0)
-          'midiOutShortMsg (hMidiOut, &H7f4090 + (OpMenu * 256))
+#ifdef __FB_WIN32__
+          midiOutShortMsg (hMidiOut, &H76c0)
+          midiOutShortMsg (hMidiOut, &H7f4090 + (OpMenu * 256))
+#else
+#endif
         elseif Tecla = "ESC" then
           Jogo.encerra=1
         elseif Tecla = "[" or tecla = "]" then
@@ -2383,7 +2418,10 @@ sub Joga
           Jogo.Volume += 8
           if Jogo.Volume > 127 then Jogo.Volume = 127
         end if
-        'midiOutSetVolume(0, (jogo.volume Shl 9) Or (jogo.volume Shl 1))
+#ifdef __FB_WIN32__
+        midiOutSetVolume(0, (jogo.volume shl 9) Or (jogo.volume shl 1))
+#else
+#endif
 
       case Custom_, Editar
         MouseSobre = -1
