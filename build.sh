@@ -1,6 +1,7 @@
 
 #fbc -help > help.txt
 #fbc -version > version.txt
+#fbc -exx ./source/miner.bas -x fbm64
 
-#fbc -exx ./source/freebasicminer.bas -x fbm64
-/home/roland/Applications/freebasic32/bin/fbc -exx ./source/freebasicminer.bas -x fbm32 -d DEBUG
+fbc32=/home/roland/Applications/freebasic32/bin/fbc
+$fbc32 -exx -w all ./source/miner.bas -x miner32 -p ./lib/lin32 -d DEBUG

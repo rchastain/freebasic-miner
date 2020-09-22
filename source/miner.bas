@@ -4,6 +4,9 @@
 
 #include once "fbgfx.bi"
 #include once "file.bi"
+
+
+#include once "log.bi"
 #include once "sound.bi"
 
 #if __fb_lang__ = "fb"
@@ -20,21 +23,6 @@ function Clock() as double
   end if
   return timer - startTimer
 end function
-
-sub LogLn(AText as string, ARewrite as boolean = false)
-#ifdef DEBUG
-  const as string CFileName = "freebasicminer.log"
-  dim as integer LFile = freefile
-  if ARewrite then kill CFileName
-  open CFileName for append as LFile
-  print #LFile, time & " " & AText
-  close LFile
-#endif
-end sub
-
-#define DEBUG_LINE_ID __FILE__ & " " & __FUNCTION__ & "(" & __LINE__ & ") "
-#define DEBUG_LOG(_X_) LogLn(DEBUG_LINE_ID & (_X_))
-#define DEBUG_LOG_REWRITE(_X_) LogLn(DEBUG_LINE_ID & (_X_), true)
 
 #define RGBA_A(c) (cuint(c) shr 24)
 #define RGBA_R(c) (cuint(c) shr 16 and 255)
@@ -832,7 +820,13 @@ PontoTesouro (21) = 25
 PontoTesouro (22) = 30
 
 'Inicializa MIDI
-InitSound
+if not InitSound then
+  cls
+  draw string (10, 20), TXT (1)
+  draw string (10, 50), TXT (50)
+  LimpaTeclado
+  end 1
+end if
 
 LoadBar 25
 sleep 2, 1
