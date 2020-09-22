@@ -4,12 +4,8 @@
 
 #include once "fbgfx.bi"
 #include once "file.bi"
-#ifdef __FB_WIN32__
-#include once "windows.bi"
-#include once "win\mmsystem.bi"
-#else
-#define DWord uinteger
-#endif
+#include once "sound.bi"
+
 #if __fb_lang__ = "fb"
 using FB
 #endif
@@ -114,14 +110,6 @@ enum  'Status do editor
   RespTesta
   RespExit
 end enum
-
-'Som
-type TSons
-  COn1  as DWord
-  COn2  as DWord
-  COff  as DWord
-  Tempo as ubyte
-end type
 
 'Jogo
 type TJogo
@@ -287,7 +275,7 @@ declare sub VeSeGanhaVida (Acrescimo as integer)
 declare sub CalculaBonusTempo
 declare sub LeMouse
 declare sub MudaStatus (NovoStatus as integer)
-declare sub DesligaSons
+'declare sub DesligaSons
 declare sub LimpaTeclado (IncLMTec as integer = 0)
 
 'Editor:
@@ -311,9 +299,7 @@ declare sub SwapEDXY
 declare sub GravaUndo
 declare function PerguntaSeEncerraTeste() as integer
 
-
 'Variáveis compartilhadas
-'--------------------------------------------------
 
 'Armazenamento das Imagens
 dim shared Carregou as integer
@@ -325,16 +311,6 @@ dim shared as TMsgPT MSG (20)
 'Recordes
 dim shared TopPt (10) as Recorde
 dim shared as integer ConfirmDel
-
-'Sons
-#ifdef __FB_WIN32__
-dim shared hMidiOut as HMIDIOUT
-#else
-#endif
-dim shared as TSons Som (1 to 6, 1 to 4), SomEx (1 to 7)
-dim shared as ubyte Toca (1 to 6, 1 to 4), QtdNotasVenceu
-dim shared as DWord UltNotaGameOver, resposta
-dim shared as double TimerNotaVenceu
 
 'Menu
 dim shared as integer OpMenu, XM, YM, Mina1, Mina2, PosTop10, Opcao1
@@ -420,9 +396,6 @@ dim shared as integer EDXX1, EDXX2, EDYY1, EDYY2, EdGrid, PosMouse
 dim shared as integer MatrizAtual, MatrizRedoLimite, MatrizUndoLimite, EdMovendoUndo, BonecoX (MaxUndo), BonecoY (MaxUndo)
 dim shared as ubyte UndoFundo (MaxUndo, -1 to 100, -1 to 60), UndoFrente (MaxUndo, -1 to 100, -1 to 60), UndoObjeto (MaxUndo, -1 to 100, -1 to 60)
 
-
-'--------------------------------------------------
-
 'Fonte
 Lt_ = "ABCDEFGHIJKLMNOPQRSTUVWXYZÇÁÉÍÓÚÂÊÔÃÕÀabcdefghijklmnopqrstuvwxyzçáéíóúâêôãõà.,:?!0123456789-+'/()=_>|"
 '*FT* Lt = " 0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZÇÁÉÍÓÚÂÊÔÃÕÀabcdefghijklmnopqrstuvwxyzçáéíóúâêôãõà-_=+(*)&%$#@!?,.<>;:|"
@@ -453,7 +426,6 @@ DEBUG_LOG_REWRITE("Application start")
 sleep 2, 1
 
 'Definição das imagens do boneco
-'--------------------------------------------------
 
 'Parado (depende do último movimento)
 Parado (0) = 116
@@ -714,9 +686,7 @@ end with
 LoadBar 15
 sleep 2, 1
 
-
 'Definição dos tipos de objetos:
-'--------------------------------------------------
 
 'Vazio (0):
 with TpObjeto (0)
@@ -862,17 +832,7 @@ PontoTesouro (21) = 25
 PontoTesouro (22) = 30
 
 'Inicializa MIDI
-#ifdef __FB_WIN32__
-if midiOutOpen( @hMidiOut, MIDI_MAPPER, 0, 0, CALLBACK_NULL) then
-  cls
-  draw string (10, 20), TXT (1)
-  draw string (10, 50), TXT (50)
-  LimpaTeclado
-  if hMidiOut <> 0 then midiOutClose hMidiOut
-  end
-end if
-#else
-#endif
+InitSound
 
 LoadBar 25
 sleep 2, 1
@@ -1106,7 +1066,6 @@ for F = 0 to 1
 next
 line bmp (280), (54, 0) - step (51, 55), rgba (0, 0, 0, 255), B
 line bmp (280), (55, 0) - step (49, 55), rgba (128, 128, 128, 255), B
-'Line bmp (280), (56, 1) - step (47, 53), rgba (160, 160, 160, 255), BF
 put bmp (280), (57, 3), Grafx, (677, 0) - (722, 49), pset
 BMP (281) = imagecreate (46, 16, rgba (192, 192, 192, 255), 32)
 put bmp (281), (0, 0), grafX, (677, 50) - (722, 65), pset
@@ -1127,52 +1086,8 @@ next
 
 LoadBar 95
 
-'Sons: feno caindo:
-Som (1, 1).COn1 = &H76c0 : Som (1, 1).COn2 = &H6f3490: Som (1, 1).COff = &H6f3480 'Ok Sobre terra, feno, tijolo ou escada
-Som (1, 2).COn1 = &H76c0 : Som (1, 2).COn2 = &H6f2d90: Som (1, 2).COff = &H6f2d80 'Ok Sobre parede indestr., pedra, tesouro, suporte, espeto
-Som (1, 3).COn1 = &H76c0 : Som (1, 3).COn2 = &H6f3b90: Som (1, 3).COff = &H6f3b80 'Ok Sobre carro, item, bomba
-Som (1, 4).COn1 = &H75c0 : Som (1, 4).COn2 = &H6f3f90: Som (1, 4).COff = &H6f3f80 'Ok Sobre caixa
+LoadSounds
 
-'Sons: pedra, tesouro ou suporte caindo:
-Som (2, 1).COn1 = &H7fc1 : Som (2, 1).COn2 = &H774391: Som (2, 1).COff = &H774381 'Ok Sobre terra, feno, tijolo ou escada
-Som (2, 2).COn1 = &H7fc1 : Som (2, 2).COn2 = &H774491: Som (2, 2).COff = &H774481 'Ok Sobre parede indestr., pedra, tesouro, suporte, espeto
-Som (2, 3).COn1 = &H7fc1 : Som (2, 3).COn2 = &H774591: Som (2, 3).COff = &H774581 'Ok Sobre carro, item, bomba
-Som (2, 4).COn1 = &H7fc1 : Som (2, 4).COn2 = &H774691: Som (2, 4).COff = &H774681 'Ok Sobre caixa
-
-'Sons: carro, item ou bomba caindo:
-Som (3, 1).COn1 = &H2fc2 : Som (3, 1).COn2 = &H7f4c92: Som (3, 1).COff = &H7f4c82 'Ok Sobre terra, feno, tijolo ou escada
-Som (3, 1).COn1 = &H2fc2 : Som (3, 2).COn2 = &H7f4892: Som (3, 2).COff = &H7f4882 'Ok Sobre parede indestr., pedra, tesouro, suporte, espeto
-Som (3, 1).COn1 = &H2fc2 : Som (3, 3).COn2 = &H7f4392: Som (3, 3).COff = &H7f4382 'Ok Sobre carro, item, bomba
-Som (3, 1).COn1 = &H2fc2 : Som (3, 4).COn2 = &H7f3c92: Som (3, 4).COff = &H7f3c82 'Ok Sobre caixa
-
-'Sons: caixa caindo:
-Som (4, 1).COn1 = &H73c3 : Som (4, 1).COn2 = &H7f3c93: Som (4, 1).COff = &H7f3c83 'Ok Sobre terra, feno, tijolo ou escada
-Som (4, 2).COn1 = &H73c3 : Som (4, 2).COn2 = &H7f4393: Som (4, 2).COff = &H7f4383 'Ok Sobre parede indestr., pedra, tesouro, suporte, espet
-Som (4, 3).COn1 = &H73c3 : Som (4, 3).COn2 = &H7f4093: Som (4, 3).COff = &H7f4083 'Ok Sobre carro, item, bomba
-Som (4, 4).COn1 = &H73c3 : Som (4, 4).COn2 = &H7f3893: Som (4, 4).COff = &H7f3883 'Ok Sobre caixa
-
-'Sons: furadeira
-Som (5, 1).COn1 = &H7cc4 : Som (5, 1).COn2 = &H7f5994: Som (5, 1).COff = &H7f5984 'Ok Furando feno ou tijolo
-Som (5, 2).COn1 = &H7cc4 : Som (5, 2).COn2 = &H7f5a94: Som (5, 2).COff = &H7f5a84 'Ok Furando pedra ou tesouro
-Som (5, 3).COn1 = &H7cc4 : Som (5, 3).COn2 = &H7f5b94: Som (5, 3).COff = &H7f5b84 'Ok Furando carro ou item
-Som (5, 4).COn1 = &H7cc4 : Som (5, 4).COn2 = &H7f5c94: Som (5, 4).COff = &H7f5c84 'Ok Furando caixa
-
-'Sons: picareta5
-Som (6, 1).COn1 = &H7fc5 : Som (6, 1).COn2 = &H7f5795: Som (6, 1).COff = &H7f5785 'Furando feno ou tijolo
-Som (6, 2).COn1 = &H7fc5 : Som (6, 2).COn2 = &H7f5695: Som (6, 2).COff = &H7f5685 'Furando pedra ou tesouro
-Som (6, 3).COn1 = &H7fc5 : Som (6, 3).COn2 = &H7f5595: Som (6, 3).COff = &H7f5585 'Furando carro ou item
-Som (6, 4).COn1 = &H7fc5 : Som (6, 4).COn2 = &H7f5495: Som (6, 4).COff = &H7f5485 'Furando caixa
-
-'Sons: Explosões
-SomEx (1).COn1 = &H7fc6 : SomEx (1).COn2 = &H7f3296: SomEx (1).COff = &H7f3286  'Ok Explosao bomba pequena
-SomEx (2).COn1 = &H7fc6 : SomEx (2).COn2 = &H7f2f96: SomEx (2).COff = &H7f2f86  'Ok Explosao bomba grande
-SomEx (3).COn1 = &H7fc6 : SomEx (3).COn2 = &H7f2396: SomEx (3).COff = &H7f2386  'Ok Explosao boneco
-SomEx (4).COn1 = &H72c6 : SomEx (4).COn2 = &H6f4096: SomEx (4).COff = &H6f4086  'Ok pega item
-SomEx (5).COn1 = &H72c6 : SomEx (5).COn2 = &H5f4896: SomEx (5).COff = &H5f4886  'Ok Pega tesouro
-SomEx (6).COn1 = &H15c6 : SomEx (6).COn2 = &H6f2996: SomEx (6).COff = &H6f2986  'Ok Dame
-SomEx (7).COn1 = &H7ec6 : SomEx (7).COn2 = &H6f4196: SomEx (7).COff = &H6f4186  'Ok Empurrando
-
-'---------------------------------------------------
 LeMinaIn 0, 1
 
 LoadBar 100
@@ -1195,7 +1110,7 @@ LeTXT (IAtual)
 if Jogo.MaxAlcancada < 1 then Jogo.MaxAlcancada = 1
 if Jogo.Volume < 0 or jogo.Volume > 127 then Jogo. Volume = 64
 
-'midiOutSetVolume(0, (jogo.volume Shl 9) Or (jogo.volume Shl 1))
+'midiOutSetVolume(0, (jogo.volume Shl 9) or (jogo.volume Shl 1))
 
 'FPS / velocidade
 Jogo.Passos = 8
@@ -1222,38 +1137,21 @@ cls
 screenset 0, 1
 ScrAtiva=0
 
-'-----------------------------------------
 'Chama o ciclo Principal
-'-----------------------------------------
 
 Joga
 
-'-----------------------------------------
 'Encerra o Programa
-'-----------------------------------------
 
 'Libera canais de som e memória alocada para imagens
-#ifdef __FB_WIN32__
-if hMidiOut <> 0 then midiOutClose hMidiOut
-#else
-#endif
+FreeSound
 for f= 0 to 277
   imagedestroy BMP (f)
 next
 
-
 end
 
-'*****************************************
-'*****************************************
-'*****************************************
 'Procedimentos e Funções
-'*****************************************
-'*****************************************
-'*****************************************
-
-
-'-------------------------------------------------------------------------------------------
 
 'Desenha o fundo de listras coloridas dos menus, pausa, etc.
 
@@ -1267,8 +1165,6 @@ dim F as integer
   next
 end sub
 
-'-------------------------------------------------------------------------------------------
-
 'Desenha a barra indicando a carga do programa
 
 sub LoadBar (perc as integer)
@@ -1276,13 +1172,9 @@ sub LoadBar (perc as integer)
   sleep 2, 1
 end sub
 
-
-'-------------------------------------------------------------------------------------------
-
 'Desenha a tela
 
 sub Desenha
-
   'Declaração de variáveis locais
   dim as integer XR, YR, X1, Y1, X1R, Y1R, BonecoR, Agua0, DF1, DF2, DG1, DG2, FigPt, F, G, H, I
   dim as integer TRX, TRY, TRXa, TRYa, Explodindo
@@ -1298,7 +1190,6 @@ sub Desenha
     TRY  = MapY
     TRXa = 0
     TRYa = 0
-
   else
     with Boneco
       'Calcula o X inicial da tela
@@ -1318,14 +1209,11 @@ sub Desenha
         TRX  = .x - 12
         TRXa = 0
       end if
-
       if .X = 12 and .DirAtual = 2 then
         TRX  = 0
         TRXa = 0
       end if
-
       if .x = Mina.Larg - 12 and .DirAtual = 1 then TRXa = 0
-
       'Calcula o Y inicial da tela
       if Mina.ALT < 17 or .Y < 8 then
         TRY  = 0
@@ -1343,17 +1231,13 @@ sub Desenha
         TRY  = .Y - 8
         TRYa = 0
       end if
-
       if .Y = 8 and .DirAtual = 3 then
         TRY  = 0
         TRYa = 0
       end if
-
       if .Y = Mina.ALT - 8 and .DirAtual > 3 then TRYa = 0
-
     end with
   end if
-
   if (mina.noturno = 0) or (Jogo.Status = Editor) then
     df1 = 0
     df2 = 25
@@ -1371,14 +1255,12 @@ sub Desenha
     if dg1 < 0  then dg1 = 0
     if dg2 > 17 then dg2 = 17
   end if
-
   'Grupo de imagens do boneco
   if Boneco.NoOxigenio = 0 then
     BonecoR = Jogo.Player * 46
   else
     BonecoR = 23
   end if
-
   if Explodindo > 0 then
     TRXA = trxa + rnd * 11 - 5
     trya = TRYA + rnd * 11 - 5
@@ -1386,10 +1268,7 @@ sub Desenha
     TRXA = trxa + rnd * 3 - 1
     trya = TRYA + rnd * 3 - 1
   end if
-
   'Inicia o desenho
-  '----------------
-
   'Desenha imagens do fundo (layer 0, pset)
   for f = df1 to df2
     for g = dg1 to dg2
@@ -1400,7 +1279,6 @@ sub Desenha
       end if
     next
   next
-
   'Desenha os Objetos sobre o fundo (layer 1, trans)
   if (Jogo.Status <> Editor) or (EdShow =1 or EdShow = 2) then
     for f = df1 to df2
@@ -1424,13 +1302,10 @@ sub Desenha
       next
     next
   end if
-
   'Desenha o boneco (layer 1, trans)
   if Jogo.Status <> VenceuJogo and Jogo.Status <> Top10 and JOGO.STATUS <> GameOver and BONECO.MORREU = 0 then
-
     'Calcula Posição
     with Boneco
-
       'Escolhe imagem
       'Picareta
       if jogo.Status = Editor then
@@ -1441,7 +1316,6 @@ sub Desenha
         if .NaPicareta > 0 then
           .Img = Usando(0, .NaPicareta mod 2) + BonecoR
           put (TRXa + .ImgX - (TRX * 32), TRYa + .ImgY - (TRY * 32)+ 32), BMP (259 + int((.NaPicareta / Jogo.Passos) * 2.35)), trans
-
         'Furadeira
         elseif .NaFuradeira>0 then
           .img = Usando (.DirFuradeira, .NaFuradeira mod 2) + BonecoR
@@ -1450,16 +1324,13 @@ sub Desenha
           else
             put (TRXa + .ImgX - (TRX * 32) - 32, TRYa + .ImgY - (TRY * 32)), BMP (269 + int((.NaFuradeira / Jogo.Passos) * 2.35)), trans
           end if
-
         'Parado
         elseif .DirAtual = 0 then
           .img = Parado (.UltDir) + BonecoR
-
         'Movendo-se
         else
           .img = Movendo (.diratual + (.empurrando * 5) - 1, .passo mod 4) + BonecoR
         end if
-
         'Ajusta posição conforme movimento
         select case .DirAtual
         case 1 'Direita
@@ -1475,12 +1346,10 @@ sub Desenha
           .ImgY = .y * 32
         end select
       end if
-
       'Desenha
       put (TRXa + .ImgX - (TRX * 32), TRYa + .ImgY - (TRY * 32)), BMP (.Img), trans
     end with
   end if
-
   'Desenha objetos da frente (layer 3, trans)
   if (jogo.status <> Top10) and (Jogo.Status <> Editor or EdShow >=2) then
     for f = df1 to df2
@@ -1491,7 +1360,6 @@ sub Desenha
       next
     next
   end if
-
   'Desenha água (layer 4, Alpha 95)
   Agua0 = (Jogo.seqciclo * 13) mod 20
   for f = df1 to df2
@@ -1502,17 +1370,14 @@ sub Desenha
       end if
     next
   next
-
   'Desenha Lanterna (layer 5, Alpha variável)
   if Jogo.Status <> Editor then
     if mina.noturno = 1 then
       put (TRXa + boneco.ImgX - (TRX * 32) - 208, TRYa + boneco.ImgY - (TRY * 32) - 208), BMP (275), (0, 0) - (443, 443), alpha
     end if
-
     'Desenha explosões (layer 6, trans)
     for f = 0 to 10
       with Explosao(f)
-
         if .tipo > 0 then
           for G = (.Tipo = 2) to - (.Tipo = 2)
             for H = -1 to 1
@@ -1522,7 +1387,6 @@ sub Desenha
         else
           .Tempo = 0
         end if
-
         'Incrementa contador
         .tempo += 1
         if .tempo >= 35 then
@@ -1531,7 +1395,6 @@ sub Desenha
         endif
       end with
     next
-
     'Mensagens de pontos na tela
     for I = 0 to 9
       with Msg (I)
@@ -1565,8 +1428,6 @@ sub Desenha
         line(0,f*32+32)-(799,f*32+32),rgb(31,31,31)
       next
     end select
-
-
     if edgrid mod 2 = 0 then
       for f=0 to 24
         EscreveNumeroPeq (MapX + f, 11+f*32,0)
@@ -1575,52 +1436,36 @@ sub Desenha
         EscreveNumeroPeq (Mapy + f, 0, 11+f*32)
       next
     end if
-
   end if
-
   if Jogo.Status <> Editor then
     'Desenha a barra inferior
     put (0, 544), BMP (210), pset
-
     with Boneco
-
       'Pontuação
       EscreveNumero .Pontos, 6, 7, 577, 0
-
       'Núm. mina
       'If Jogo.Status <> ModoDemo Then
         EscreveNumero .Mina, 3, 96, 577, 0
       'end if
-
       'Oxigenio
       put( 151, 576), BMP (209), (0, 0) - step (.Oxigenio, 15), pset
-
       'Qtde Itens Garrafa de Oxigenio
       EscreveNumero .ItOxigenio, 1, 296, 575, 0
-
       'Qtde Itens Suporte Pedra
       EscreveNumero .ItSuporte, 1, 347, 575, 0
-
       'Qtde Itens Picareta
       EscreveNumero .ItPicareta, 1, 393, 575, 0
-
       'Qtde Itens Furadeira
       EscreveNumero .ItFuradeira, 1, 445, 575, 0
-
       'Qtde Itens Bombinha
       EscreveNumero .ItBombinha, 1, 489, 575, 0
-
       'Qtde Itens Bombona
       EscreveNumero .ItBombona, 1, 532, 575, 0
-
       'Quantidade de pedras a recolher
       EscreveNumero Mina.Tesouros, 2, 550, 575, 0
-
       'Vidas
       EscreveNumero .Vidas, 2, 582, 576, 0
-
     end with
-
     'Tempo Maximo
     if Mina.Tempo > 0 then
       EscreveNumero int(mina.Tempo/60), 2, 655,556, 1
@@ -1636,7 +1481,6 @@ sub Desenha
     end if
     EscreveNumero int(Boneco.Tempo / 60), 2, 655, 578, 1
     EscreveNumero Boneco.Tempo mod 60, 2, 683, 578, 1
-
     if Jogo.Status = ModoDemo then
       DemoCiclo = DemoCiclo + 1
       select case MensDemo
@@ -1709,9 +1553,7 @@ sub Desenha
       end select
     end if
   else
-
     line (0, 543) - (799, 543), &H000000
-
     select case Jogo.EdStatus
     case Editando
       line (1, 545) - (609, 563), &HA0A0A0, BF
@@ -1721,7 +1563,6 @@ sub Desenha
       line (614, 545) - (798, 598), &HA0A0A0, BF
       line (667 , 544) - (667 , 599), &H000000
       line (718 , 544) - (718 , 599), &H000000
-
       select case PosMouse
       case EdForaTela
         'Nada a fazer
@@ -1762,24 +1603,19 @@ sub Desenha
       case EdEXIT
         line (774, 573) - (798, 598), &HFFFFFF, BF
       end select
-
       'se mouse estiver sobre qualquer área, fazer um hilight em amarelo ou verde
       put (0, 544), bmp (279), trans
       'calcula posiçao da barra e mostra:
       put (46 + Primeiroitem * 4.48, 545), BMP (278), alpha
       put (613, 544), BMP(280), trans
-
       if ItemSel >= PrimeiroItem and ItemSel <= PrimeiroItem + 17 then
         line (int (ItemSel - PrimeiroItem) * 34 - 1, 565) - step (35, 34), &H40ff40, BF
       end if
-
       for f = 0 to 17
         DesenhaItem f * 34 + 1, 568, PrimeiroItem + F
       next
-
       if EdShow = 0 or Edshow = 1 then put (670, 547), Bmp (281), trans
       if EdShow = 0 or Edshow = 3 then put (670, 564), Bmp (281), trans
-
     case Selecionando
       DesBox 24, 1, 4, 400, 572
       EscreveCentro TXT(109), 562
@@ -1799,14 +1635,11 @@ sub Desenha
   end if
 end sub
 
-'-------------------------------------------------------------------------------------------
-
 'Escreve a pontuação ganha na tela
 
 sub EscrevePT (Pontos as  integer, X as integer, Y as integer, CJCarac as integer)
   dim as string StrNum, NumTxt
   dim as integer X1, NumVal, F
-
   'Passa o número para texto
   StrNum= str(Pontos)
   X1 = X - (len (StrNum) * 6)
@@ -1816,8 +1649,6 @@ sub EscrevePT (Pontos as  integer, X as integer, Y as integer, CJCarac as intege
     put (x1 + f * 12 - 12, Y), BMP (239 + CJCarac), (NumVal * 9, 0) - step (8,14), alpha
   next
 end sub
-
-'-------------------------------------------------------------------------------------------
 
 'Escreve um número (caracteres especiais)
 
@@ -1845,8 +1676,6 @@ sub EscreveNumero (byval Numero as long, Comprimento as  integer, X1 as integer,
   next
 end sub
 
-'----------------------------------------------------------------------
-
 'Escreve textos
 
 sub Escreve (byval Texto as string, x1 as integer, y1 as integer, Bold as integer = 0, BoldV as integer = 0)
@@ -1866,15 +1695,11 @@ sub Escreve (byval Texto as string, x1 as integer, y1 as integer, Bold as intege
   next
 end sub
 
-'----------------------------------------------------------------------
-
 'Escreve textos centralizados
 
 sub EscreveCentro (byval Texto as string, Y1 as integer, Bold as integer = 0, BoldV as integer = 0)
   Escreve Texto, 399-LargTexto(Texto, Bold)/2, Y1, Bold, BoldV
 end sub
-
-'----------------------------------------------------------------------
 
 'Calcula a largura que um texto ocupa em pixels
 
@@ -1891,8 +1716,6 @@ function LargTexto (byval Texto as string, Bold as integer = 0) as integer
   Larg = Larg - Bold - 1
   return Larg
 end function
-
-'-------------------------------------------------------------------------------------------
 
 'Inicializa dados para nova partida
 
@@ -1913,8 +1736,6 @@ sub IniciaJogo
     .Pontos=0
   end with
 end sub
-
-'----------------------------------------------------------------------
 
 'Inicia dados da vida (zera status do boneco)
 
@@ -1953,19 +1774,14 @@ sub IniciaVida
   next
 end sub
 
-'----------------------------------------------------------------------
-
 'Le arquivo e monta uma mina
 
 sub LeMinaOUT (NMina as integer, Editando as integer = 0)
   dim as string Linha, NArq
-  randomize
-
+  'randomize
   LimpaMina
-
   'zera contador de tesouros para iniciar a contagem
   Mina.Tesouros = 0
-
   'Abre arquivo
   if NMina = -1 then
     NArq = "minas/teste.map"
@@ -1973,7 +1789,6 @@ sub LeMinaOUT (NMina as integer, Editando as integer = 0)
     LimpaMinaEditor
     NArq = "minas/m" + right("000" & str(NMina), 3) + ".map"
   end if
-
   'Verifica se o arquivo existe
   if fileexists (Narq) then
     if NMina > -1 then Mina.numero = NMina
@@ -1982,10 +1797,8 @@ sub LeMinaOUT (NMina as integer, Editando as integer = 0)
     get #1, , Mina.Alt
     get #1, , Mina.Noturno
     get #1, , Mina.Tempo
-
     LeMinaDet Editando
     close #1
-
   else  'Arquivo não existe
     Mensagem 4, 8, TXT(0), TXT(50),""
     if Tecla <>"" and Tecla <> UltTecla then
@@ -1997,59 +1810,24 @@ sub LeMinaOUT (NMina as integer, Editando as integer = 0)
     LimpaMina
     LimpaMinaEditor
   end if
-
 end sub
-
-'-------------------------------------------------------------------------------------------
-'-------------------------------------------------------------------------------------------
 
 'Sub Principal
 
 sub Joga
   dim as integer Emp1, Emp2, Emp3, SeqDemo, F, G, H, I
   DEBUG_LOG("Begin of the game procedure")
-  
   ATimer = int(Clock * 1000)
   if VRed+VGreen+VBlue=0 then VBlue=1
   TeclasDemo= "R01M01R15M22R23M02R24M03L23M04L16M05L12M06L08M07L05M08L04M09D04L00R01W20L00M10R24D06M11L22IC L20ICLL18ICLL16M12IV R18W50L14IV R16W50L12ICLL10" & _
         "IV R12W50L08ICLL06IV R08W50L04ICLL02IV R04W50L01M13L00IX M14D08R04M15IB L02W50R06IB L04W50R08IB L06W50R10IB L08W50R12IB L10W50R14IB L12W50R16IB L14W50" & _
         "R17M16R20IZ R21M17R22M18IB L19W20L01M19D10L00M20R24U09M21###"
   Tecla = ""
-
-
-  '-------------
-  '#############
-  '-------------
-
   'CICLO DO JOGO
-
-  '-------------
-  '#############
-  '-------------
-
   while Jogo.Encerra = 0
-
     Jogo.Status0 = Jogo.Status
-
     'Silencia canais que terminaram de reproduzir sons
-    for f = 1 to 6
-      for g = 1 to 4
-        if Som (f, g).Tempo > 0 then
-          Som (f, g).Tempo -=1
-#ifdef __FB_WIN32__
-          if Som (f, g).Tempo = 0 then midiOutShortMsg (hMidiOut, Som(f,g).COff)
-#else
-#endif
-        end if
-      next
-      if SomEx (f).Tempo > 0 then
-        SomEx (f).Tempo -= 1
-#ifdef __FB_WIN32__
-        if SomEx (f).Tempo = 0 then midiOutShortMsg (hMidiOut, SomEx(f).COff)
-#else
-#endif
-      end if
-    next
+    Silencia
 
     if inkey = chr(255) + "k" then
       Jogo.Encerra = 1
@@ -2118,16 +1896,8 @@ sub Joga
         if (MouseY > 300) and (MouseY < 363) and (MouseX > 48 + F * 80) and (MouseX < 111 + F * 80) then
           MouseSobre = F
           if (MouseMoveu = 1) and (OpMenu <> F) then
-#ifdef __FB_WIN32__
-            midiOutShortMsg (hMidiOut, &H7f4080 + (OpMenu * 256))
-#else
-#endif
+            Sound01(OpMenu, F)
             OpMenu = F
-#ifdef __FB_WIN32__
-            midiOutShortMsg (hMidiOut, &H76c0)
-            midiOutShortMsg (hMidiOut, &H7f4090 + (OpMenu * 256))
-#else
-#endif
           end if
         end if
         if OpMenu = F then
@@ -2142,31 +1912,13 @@ sub Joga
       if (Tecla <> "") or (MouseMoveu = 1) then TTDemo1 = Clock
 
       if MouseSobre > -1 and MouseDisparou = 1 then OpMenu = MouseSobre : Tecla = "["
-
       if UltTecla <> Tecla then
-
         if Tecla = "D" or tecla = "R" then
-#ifdef __FB_WIN32__
-          midiOutShortMsg (hMidiOut, &H7f4080 + (OpMenu * 256))
-#else
-#endif
+          Sound01(OpMenu, (Opmenu + 1) mod (Sair + 1))
           OpMenu = (Opmenu + 1) mod (Sair + 1)
-#ifdef __FB_WIN32__
-          midiOutShortMsg (hMidiOut, &H76c0)
-          midiOutShortMsg (hMidiOut, &H7f4090 + (OpMenu * 256))
-#else
-#endif
         elseif Tecla = "U" or Tecla = "L" then
-#ifdef __FB_WIN32__
-          midiOutShortMsg (hMidiOut, &H7f4080 + (OpMenu * 256))
-#else
-#endif
+          Sound01(OpMenu, (OpMenu + Sair) mod (Sair + 1))
           OpMenu = (OpMenu + Sair) mod (Sair + 1)
-#ifdef __FB_WIN32__
-          midiOutShortMsg (hMidiOut, &H76c0)
-          midiOutShortMsg (hMidiOut, &H7f4090 + (OpMenu * 256))
-#else
-#endif
         elseif Tecla = "ESC" then
           Jogo.encerra=1
         elseif Tecla = "[" or tecla = "]" then
@@ -2235,12 +1987,9 @@ sub Joga
         DemoCiclo = 0
       end if
 
-    '-------------------------------------------------------------------------------------------
-
     case SelIdioma  'troca o idioma do programa
       DesFundo
       PutLogo 290, 40
-
       if IQuant = 0 then
         Mensagem 5, 8, "Só há o idioma português instalado.", "", ""
         if Tecla <> "" and ulttecla <> Tecla then
@@ -2275,29 +2024,23 @@ sub Joga
         end if
       end if
 
-    '-------------------------------------------------------------------------------------------
-
     case Configs 'trata algumas opções do menu
 
       'Desenha fundo e LOGO
       DesFundo
       PutLogo 290, 40
-
       select case OpMenu
       case IrPara 'Ir para Mina...
         if Boneco.Mina < 1 or Boneco.Mina > Jogo.NumMinas then Boneco.Mina = 1
         EscreveCentro TXT(51), 140, 1, 0
         EscreveCentro TXT(52), 575, 1, 0
-
         Mina1 = int((boneco.mina - 1) / 100) * 100 + 1
         if Mina1 > Jogo.NumMinas - 100 then
           Mina2 = Jogo.NumMinas - Mina1 + 1
         else
           Mina2 = 100
         end if
-
         MouseSobre = -1
-
         for F = 0 to Mina2 - 1
           XM = (F mod 10) * 65 + 80
           YM = int (F / 10) * 40 + (370 - int((Mina2 + 9)/10) * 20)
@@ -2318,7 +2061,6 @@ sub Joga
           else
             Escreve str(Mina1 + F), XM + 11, YM + 8, 1, 0
           end if
-
         next
 
         if (MouseMoveu = 1) and (MouseSobre > -1) then Boneco.Mina = MouseSobre
@@ -2418,10 +2160,7 @@ sub Joga
           Jogo.Volume += 8
           if Jogo.Volume > 127 then Jogo.Volume = 127
         end if
-#ifdef __FB_WIN32__
-        midiOutSetVolume(0, (jogo.volume shl 9) Or (jogo.volume shl 1))
-#else
-#endif
+        'midiOutSetVolume(0, (jogo.volume shl 9) Or (jogo.volume shl 1))
 
       case Custom_, Editar
         MouseSobre = -1
@@ -2531,7 +2270,6 @@ sub Joga
           end if
         end if
       end select
-    '-------------------------------------------------------------------------------------------
 
     case Jogando, ModoDemo, Testando 'JOGANDO; MODO DEMONSTRAÇÃO; TESTANDO MINA EM EDIÇÃO
 
@@ -2584,8 +2322,7 @@ sub Joga
               MudaStatus ModoMapa
             else
               'Som DAME
-              'midiOutShortMsg (hMidiOut, SomEx(6).COn1)
-              'midiOutShortMsg (hMidiOut, SomEx(6).COn2)
+              Sound02
               SomEx(6). Tempo = 4
             end if
           end with
@@ -2672,7 +2409,7 @@ sub Joga
             end with
           next
         else
-          'midiOutShortMsg (hMidiOut, SomEx(7).COff)
+          Sound03
         end if
 
         'Verifica e conclui movimentação e outros comportamentos do boneco
@@ -2696,7 +2433,6 @@ sub Joga
             case 4,5
               .y += 1
             end select
-
             'Não está mais andando, nem empurrando
             .DirAtual = 0
             .Empurrando = 0
@@ -2707,7 +2443,6 @@ sub Joga
             if ((Tecla <> "") and (Tecla <> UltTecla)) or ((Clock >= TIMESTART) and (Jogo.Status <> Testando)) then
               Iniciado = 1
             end if
-
           elseif .Morreu = 1 then
             Explode (.x, .y, 2)
             .Morreu = 2
@@ -2715,27 +2450,22 @@ sub Joga
               .Morreu = 0
               MudaStatus NoMenu
             end if
-
           elseif .Morreu > 1 then
             .Morreu = (.Morreu + 1) mod 100
             if .Morreu < 2 then .Morreu = 2
-
             'Verifica se terminou movimento
             if Tecla <> "" and Tecla <> UltTecla then
               'Zera contadores de ciclos
               Jogo.Ciclo = 0
               Jogo.SeqCiclo = 0
-
               'Se for teste, apenas reinicia
               if Jogo.Status = Testando then
                 LeMinaOUT -1, 0
                 Iniciado = 0
                 IniciaVida
-
               'Verifica Game Over
               elseif Boneco.Vidas < 1 then
                 MudaStatus GameOver
-
               'Atualiza número de vidas e reinicia mina e boneco
               else
                 'Tira uma vida
@@ -2745,15 +2475,12 @@ sub Joga
                 else
                   LeMinaOUT Boneco.Mina, 0
                 end if
-
                 Iniciado = 0
                 IniciaVida
               end if
             end if
-
           'Se não pressionou ESC nem estava morto, verifica se está parado em posição de cair
               '(1-parado; 2-não está na escada; 3-não está sobre objeto que o apoie, ou o objeto de baixo está caindo, ou o objeto de baixo mata)
-
           elseif Iniciado = 1 and .DirAtual = 0 and .y < Mina.Alt and comport(TpObjeto(objeto(.x, .y).tp).tipo).sobe = 0 and _
                 (comport (TpObjeto (objeto (.x, .y + 1).tp).tipo).apoia = 0 or Objeto(.x, .y + 1).caindo = 1 or comport(tpobjeto(Objeto(.x, .y + 1).tp).tipo).mata = 1) then
 
@@ -2768,9 +2495,7 @@ sub Joga
           'Se não está morto, nem pediu pra morrer, nem vai cair, verifica se está usando a picareta
           elseif .NaPicareta > 0 then
             if .NaPicareta mod 3 =1 then
-              'midiOutShortMsg (hMidiOut, Som(6, 1).COn1)
-              'midiOutShortMsg (hMidiOut, Som(6, 1).COn2)
-              Som (6,1).Tempo = 1
+              Sound04
             end if
 
             .NaPicareta += 1
@@ -2805,13 +2530,9 @@ sub Joga
           'Se não está morto, não pediu, não vai cair, não está usando a picareta nem a furadeira, verifica se está no meio de um movimento e dá sequencia ao mesmo
           elseif Iniciado = 1 and .DirAtual > 0 then
             .Passo += 1
-
           elseif Iniciado = 1 then
-
             'Se não morreu nem pediu, não vai cair nem está usando nada, nem está no meio de nenhum movimento, verifica se foi solicitado novo movimento, e se ele é possível
             select case Tecla
-
-            '==========================
             'Tecla para cima
             case "U"
               'Se não está no topo e está em uma escada
@@ -2825,15 +2546,12 @@ sub Joga
                     'Atualiza direção e inicia movimento
                     .DirAtual = 3
                     .Passo    = 1
-
                     'Pega e limpa objeto do destino, se for o caso
                     PegaObj .x, .y - 1
                     'Atenção: se 2 posições acima for pedra, vai cair na cabeça!
                   end if
                 end if
               end if
-
-            '==========================
             'Tecla para baixo
             case "D"
               'Se não está no fundo
@@ -2842,14 +2560,12 @@ sub Joga
                   if comport(TpObjeto(Objeto(.x, .y + 1).tp).tipo).mata = 1 then
                   .morreu = 1
                 else
-
                   'Se o objeto de baixo for uma escada, então desce
                   if Comport(TpObjeto(Objeto(.x,.y + 1).tp).tipo).sobe = 1 then
                     'Atualiza direção e inicia movimento
                     .DirAtual = 4
                     .UltDir   = 4
                     .Passo    = 1
-
                   'Se abaixo não for escada, verifica se permite andar
                   elseif comport(TpObjeto(Objeto(.x, .y + 1).tp).tipo).anda > 0 then
                     'Atualiza direção e inicia movimento (queda)
@@ -2861,8 +2577,6 @@ sub Joga
                   end if
                 end if
               end if
-
-            '==========================
             'Tecla para esquerda
             case "L"
               .UltDir = 2
@@ -2880,19 +2594,15 @@ sub Joga
                     .Passo    = 1
                     'Pega e limpa objeto do destino, conforme o caso
                     PegaObj .x - 1, .y
-
                   'Se objeto da esquerda não permite andar, testa se tem condições de ser empurrado
                   elseif EmpurraObj (.x - 1, .y, 2, 0, 1) < 3 then
                     .Empurrando = 1
                     .DirAtual = 2
                     .Passo    = 1
-                    'midiOutShortMsg (hMidiOut, SomEx(7).COn1)
-                    'midiOutShortMsg (hMidiOut, SomEx(7).COn2)
+                    Sound05
                   end if
                 end if
               end if
-
-            '==========================
             'Tecla para Direita
             case "R"
               .UltDir = 1
@@ -2914,13 +2624,10 @@ sub Joga
                     .DirAtual = 1
                     .UltDir   = 1
                     .Passo    = 1
-                    'midiOutShortMsg (hMidiOut, SomEx(7).COn1)
-                    'midiOutShortMsg (hMidiOut, SomEx(7).COn2)
+                    Sound05
                   end if
                 end if
               end if
-
-            '==========================
             'Usar Suporte
             case "Z"
             if UltTecla <> "Z" then
@@ -2928,13 +2635,9 @@ sub Joga
                 Objeto(.x, .y).tp = 81
                 .ItSuporte -= 1
               else
-                'midiOutShortMsg (hMidiOut, SomEx(6).COn1)
-                'midiOutShortMsg (hMidiOut, SomEx(6).COn2)
-                SomEx (6).Tempo = 10
+                Sound06
               end if
             end if
-
-            '==========================
             'Usar Picareta
             case "X"
               if UltTecla <> "X" then
@@ -2942,13 +2645,9 @@ sub Joga
                   .ItPicareta -= 1
                   .NaPicareta  = 1
                 else
-                  'midiOutShortMsg (hMidiOut, SomEx(6).COn1)
-                  'midiOutShortMsg (hMidiOut, SomEx(6).COn2)
-                  SomEx (6).Tempo = 10
+                  Sound06
                 end if
               end if
-
-            '==========================
             'Usar Furadeira
             case "C"
               if UltTecla <> "C" then
@@ -2958,26 +2657,19 @@ sub Joga
                     .ItFuradeira  -= 1
                     .NaFuradeira   = 1
                     .VirouFuradeira  = 0
-                    'midiOutShortMsg (hMidiOut, Som(5, comport(tpobjeto(objeto(.x + 1, .y).tp).tipo).som).COn1)
-                    'midiOutShortMsg (hMidiOut, Som(5, comport(tpobjeto(objeto(.x + 1, .y).tp).tipo).som).COn2)
-                    Som(5, comport(tpobjeto(objeto(.x + 1, .y).tp).tipo).som).Tempo = 16
+                    Sound07(comport(tpobjeto(objeto(.x + 1, .y).tp).tipo).som)
+                    
                   elseif Comport(TpObjeto(Objeto(.x - 1, .y).tp).Tipo).Destroi = 2 and Objeto(.x - 1,.y).caindo = 0 then
                     .DirFuradeira  = 2
                     .ItFuradeira  -= 1
                     .NaFuradeira   = 1
                     .VirouFuradeira  = 0
-                    'midiOutShortMsg (hMidiOut, Som(5, comport(tpobjeto(objeto(.x - 1, .y).tp).tipo).som).COn1)
-                    'midiOutShortMsg (hMidiOut, Som(5, comport(tpobjeto(objeto(.x - 1, .y).tp).tipo).som).COn2)
-                    Som(5, comport(tpobjeto(objeto(.x - 1, .y).tp).tipo).som).Tempo = 16
+                    Sound07(comport(tpobjeto(objeto(.x - 1, .y).tp).tipo).som)
                   end if
                 else
-                  'midiOutShortMsg (hMidiOut, SomEx(6).COn1)
-                  'midiOutShortMsg (hMidiOut, SomEx(6).COn2)
-                  SomEx (6).Tempo = 10
+                  Sound06
                 end if
               end if
-
-            '==========================
             'Aciona bomba pequena
             case "V"
               if UltTecla <> "V" then
@@ -2986,13 +2678,9 @@ sub Joga
                   objeto(.x, .y).Tp    = 77
                   objeto(.x, .y).Passo   = 1
                 else
-                  'midiOutShortMsg (hMidiOut, SomEx(6).COn1)
-                  'midiOutShortMsg (hMidiOut, SomEx(6).COn2)
-                  SomEx (6).Tempo = 10
+                  Sound06
                 end if
               end if
-
-            '==========================
             'Aciona bomba grande
             case "B"
               if UltTecla <> "B" then
@@ -3001,13 +2689,9 @@ sub Joga
                   objeto(.x,.y).Tp   = 79
                   objeto(.x,.y).Passo  = 1
                 else
-                  'midiOutShortMsg (hMidiOut, SomEx(6).COn1)
-                  'midiOutShortMsg (hMidiOut, SomEx(6).COn2)
-                  SomEx (6).Tempo = 10
+                  Sound06
                 end if
               end if
-
-            '==========================
             '****DESATIVAR:::
             'Pula a mina
             case "TAB"
@@ -3016,10 +2700,8 @@ sub Joga
                 MudaStatus VenceuMina
                 CalculaBonusTempo
               end if
-
             end select
           end if
-
           'Atualizar oxigenio - Se estiver vivo e no momento de atualizar (jogo.Ciclo=0)
           if Iniciado = 1 and Jogo.Ciclo = 0 and .morreu = 0 then
             if (Fundo(.X, .Y) = 0 and (.DirAtual <> 3 or Fundo(.X, .Y - 1) = 0 or .Passo < Jogo.Passos / 2)) or (fundo(.x, .y + 1)=0 and .DirAtual > 3 and .Passo >= Jogo.Passos / 2) then
@@ -3095,7 +2777,6 @@ sub Joga
                       .Empurrando = 0
                       .Caindo   = 0
                       .Tp     = 0
-
                       'Verifica se a queda do objeto terminou, ou seja, chocou-se sobre outro objeto
                       if objeto(f, g + 2).caindo = 0 and comport(tpobjeto(objeto(f, g + 2).tp).tipo).vazio = 0 then
                         Toca(comport(tpobjeto(objeto(f, g + 1).tp).tipo).som, comport(tpobjeto(objeto(f, g + 2).tp).tipo).som) = 1
@@ -3103,33 +2784,27 @@ sub Joga
                     end if
                   end if
 
-
                 'Trata queda de objetos:
 
                 'Verifica se o objeto já estava caindo
                 elseif .AntCaindo = 1 then
-
                   'Verifica se para de cair (cai sobre apoio)
                   if Comport(TpObjeto(Objeto(f, g + 1).Tp).Tipo).Apoia = 1 then
                     .AntCaindo = 0
-
                   'Verifica se cai sobre o boneco
                   elseif Boneco.Morreu = 0 and (Boneco.Y = G + 1 and ((Boneco.X = F and Boneco.DirAtual < 4 and (Boneco.DirAtual = 0 or Boneco.Passo < int((Jogo.Passos - 1) * .8))) or _
                   (Boneco.X = F - 1 and Boneco.DirAtual = 1) or (Boneco.X = F + 1 and Boneco.DirAtual = 2))) then
                     Boneco.Morreu = 1
-
                   else  'Se não cai sobre apoio nem sobre o boneco, continua caindo
                     .Caindo = 1
                     .Passo  = 1
                   end if
-
                 'Se não estava caindo, verifica se começa a cair (se não está apoiado por objeto ou pelo boneco)
                 elseif Comport(TpObjeto(.tp).Tipo).Cai = 1 and G < Mina.Alt and Comport(TpObjeto(Objeto(F, G + 1).tp).Tipo).Apoia = 0 and _
                 Objeto (F - 1,G + 1).Empurrando <> 1 and Objeto (F + 1, G + 1).Empurrando <> 2 then
                   if boneco.morreu = 0 and (Boneco.Y = g + 1 and (Boneco.X = F or (Boneco.X = F - 1 and Boneco.DirAtual = 1) or _
                   (Boneco.X = F + 1 and Boneco.DirAtual = 2))) then
                     .AntCaindo = 0
-
                   else  'Não cai
                     .Caindo = 1
                     .Passo  = 1
@@ -3151,33 +2826,20 @@ sub Joga
             Msg(f).Ciclo = 0
           next
         else
-          for f = 1 to 6 'Rotina para gerar o som
-            for g = 1 to 4
-              if toca(f, g) = 1 then
-                'midiOutShortMsg(hMidiOut, Som (f, g).COn1)
-                'midiOutShortMsg(hMidiOut, Som (f, g).COn2)
-                Som (f, g).Tempo = 8
-              end if
-            next
-          next
-
+          Sound08
           Desenha
         end if
       else
         DesligaSons
       end if
-    '-------------------------------------------------------------------------------------------
 
     case Pausado 'PAUSA NO JOGO
-
       'desenha fundo e LOGO
       DesFundo
       Mensagem 7, 2, TXT(62), TXT(63), ""
       if tecla <> "" and tecla <> ultTecla then
         Jogo.status = Jogo.StatusAnt
       end if
-
-    '-------------------------------------------------------------------------------------------
 
     case GameOver 'GAME OVER
 
@@ -3194,11 +2856,11 @@ sub Joga
         put (334 + rnd * (260-XM)/75, 268 + rnd * (260-XM)/75), BMP (212), trans
         XM += 1
       else
-        'midiOutShortMsg (hMidiOut, &H6f0087 Or UltNotaGameOver)
+        Sound09
         Tecla = "A"
       end if
       if tecla <> "" and tecla <> ultTecla then
-        'midiOutShortMsg (hMidiOut, &H6f0087 Or UltNotaGameOver)
+        Sound09
         PosTop10 = VerificaRecorde ()
         if PosTop10 > 0 then
           MudaStatus Top10
@@ -3214,10 +2876,7 @@ sub Joga
         if VRed+VGreen+VBlue=0 then VBlue=1
       end if
 
-    '-------------------------------------------------------------------------------------------
-
     case ModoMapa 'Modo de MAPA
-
       select case Tecla
       case "U"
         MapY -= 1
@@ -3236,7 +2895,6 @@ sub Joga
       case else
         if UltTecla <> Tecla then Jogo.Status = Jogo.StatusAnt
       end select
-
       'Verifica se acabou o tempo
       if (jogo.SeqCiclo mod 5=0) and (jogo.Ciclo=0) and (iniciado > 0) and (boneco.morreu = 0) then
         boneco.Tempo += 1
@@ -3245,7 +2903,6 @@ sub Joga
           Jogo.status = Jogo.StatusAnt
         end if
       end if
-
       Desenha
       line(2,551)-(545,596),point(2,551),b
       line(3,552)-(544,595), point(3,552),b
@@ -3260,19 +2917,14 @@ sub Joga
         Mensagem 2, 0, TXT(64), "", "", 750 - LargTexto (txt(64), 1)/2, 500
       end if
 
-    '-------------------------------------------------------------------------------------------
-
     case Instruc 'FreeBasic Miner?
-
       DesFundo
       line (0, 565) - (799, 599), rgb(48 * VRed, 48 * VGreen, 48 * VBlue), BF
-
       if (ulttecla <> tecla and Tecla <>"") or (MouseDisparou = 1) then
         MudaStatus NoMenu
         Jogo.Ciclo=0
         Jogo.SeqCiclo=0
       end if
-
       PutLogo 290, 40
       EscreveCentro TXT(67), 570, 1, 1
       EscreveCentro TXT(68), 150
@@ -3285,10 +2937,7 @@ sub Joga
       put (370,430), BMP(252), trans
       EscreveCentro TXT(75), 480, 1, 1
 
-    '-------------------------------------------------------------------------------------------
-
     case VenceuMina 'CONCLUIU A MINA
-
       Desenha
       if Jogo.StatusAnt = Testando then
         F = PerguntaSeEncerraTeste
@@ -3328,10 +2977,8 @@ sub Joga
           end if
         end if
       end if
-    '-------------------------------------------------------------------------------------------
 
     case VenceuJogo 'VENCEU O JOGO
-
       for f=0 to 19
         g=int(rnd*100)
         h=int(rnd*60)
@@ -3339,15 +2986,12 @@ sub Joga
         Fundo (g,h)=1
         objeto (g,h).tp = 40 + int(rnd*16)
       next
-
       SorteiaNotaVenceu
-
       Desenha
       jogo.Ciclo=jogo.passos-1
       Mensagem 0, 12, TXT(80), TXT(81), ""
       if tecla <> "" and tecla <> ultTecla then
-        'midiOutShortMsg (hMidiOut, &H6f0080 Or UltNotaGameOver)
-        'midiOutShortMsg (hMidiOut, &H5f0080 Or (UltNotaGameOver + 513))
+        Sound10
         PosTop10 = VerificaRecorde()
         if PosTop10 > 0 then
           MudaStatus Top10
@@ -3365,29 +3009,20 @@ sub Joga
         Jogo.SeqCiclo=0
       end if
 
-    '-------------------------------------------------------------------------------------------
-
     case Top10 'TOP 10
-
       DesFundo
-
       DesBox 14, 11, 3, 400, 310
-
       'Logo
       PutLogo 290, 40
-
       'Opções:
       EscreveCentro "Top 10", 140, 2, 1
-
       for f = -1 to 9
         line(197, 200 + f * 30) - step (394, 0), rgb (128, 128, 128)
       next
-
       if PosTop10 > 0 then
         line(187, 175 + (PosTop10 - 1) * 30) - step (413, 31), rgb (80 + 80 * VRed, 80 + 80 * VGreen, 80 + 80 * VBlue), bf
         line(190, 178 + (PosTop10 - 1) * 30) - step (407, 25), rgb (48 + 48 * VRed, 48 + 48 * VGreen, 48 + 48 * VBlue), bf
       end if
-
       for f=0 to 9
         g = len (Toppt(f).nome)
         while LargTexto (left(Toppt(f).nome, g), 1) > 399 - ((largTexto ("0",1)+2) * (1+len (str(Toppt(f).Pontos))))
@@ -3444,17 +3079,11 @@ sub Joga
         end if
       end if
 
-    '-------------------------------------------------------------------------------------------
-
     case Editor
-
       Edita
       if Jogo.Status = Editor then Desenha
 
-    '-------------------------------------------------------------------------------------------
-
     end select
-
     'Calcula e mostra FPS
     Quadros += 1
     Timer2 = Clock
@@ -3464,7 +3093,6 @@ sub Joga
       UltQuadros = Quadros
       Quadros = 0
     end if
-
     'FLIP + temporizador
     TrocaTelas
 
@@ -3473,9 +3101,6 @@ TerminaCiclo:
   DEBUG_LOG("End of the game procedure")
 end sub
 
-'-------------------------------------------------------------------------------------------
-'-------------------------------------------------------------------------------------------
-
 'Boneco recolhe pedras ou outros objetos
 
 sub PegaObj (POX as integer, POY as integer)
@@ -3483,39 +3108,25 @@ sub PegaObj (POX as integer, POY as integer)
     select case TpObjeto (Objeto(POX,POY).TP).Item
     case 1
       .ItOxigenio+=1
-      'midiOutShortMsg (hMidiOut, SomEx(4).COn1)
-      'midiOutShortMsg (hMidiOut, SomEx(4).COn2)
-      SomEx (4).Tempo = 10
+      Sound11
     case 2
       .ItSuporte+=1
-      'midiOutShortMsg (hMidiOut, SomEx(4).COn1)
-      'midiOutShortMsg (hMidiOut, SomEx(4).COn2)
-      SomEx (4).Tempo = 10
+      Sound11
     case 3
       .ItPicareta+=1
-      'midiOutShortMsg (hMidiOut, SomEx(4).COn1)
-      'midiOutShortMsg (hMidiOut, SomEx(4).COn2)
-      SomEx (4).Tempo = 10
+      Sound11
     case 4
       .ItFuradeira+=1
-      'midiOutShortMsg (hMidiOut, SomEx(4).COn1)
-      'midiOutShortMsg (hMidiOut, SomEx(4).COn2)
-      SomEx (4).Tempo = 10
+      Sound11
     case 5
       .ItBombinha+=1
-      'midiOutShortMsg (hMidiOut, SomEx(4).COn1)
-      'midiOutShortMsg (hMidiOut, SomEx(4).COn2)
-      SomEx (4).Tempo = 10
+      Sound11
     case 6
       .ItBombona+=1
-      'midiOutShortMsg (hMidiOut, SomEx(4).COn1)
-      'midiOutShortMsg (hMidiOut, SomEx(4).COn2)
-      SomEx (4).Tempo = 10
+      Sound11
     'Recolhe tesouros:
     case 7 to 22
-      'midiOutShortMsg (hMidiOut, SomEx(5).COn1)
-      'midiOutShortMsg (hMidiOut, SomEx(5).COn2)
-      SomEx (5).Tempo = 10
+      Sound12
       VeSeGanhaVida PontoTesouro(TpObjeto (Objeto(POX, POY).TP).Item)
       MarcaPt (PontoTesouro(TpObjeto (Objeto(POX, POY).TP).Item), POX, POY)
       .Pontos += PontoTesouro(TpObjeto (Objeto(POX, POY).TP).Item)
@@ -3527,7 +3138,6 @@ sub PegaObj (POX as integer, POY as integer)
           Jogo.StatusAnt = Jogo.Status
           MudaStatus VenceuMina
           CalculaBonusTempo
-
         else 'Termina a demonstração
           MudaStatus NoMenu
           VRed = int(rnd*2)
@@ -3535,10 +3145,8 @@ sub PegaObj (POX as integer, POY as integer)
           VBlue = int(rnd*2)
           if VRed + VGreen + VBlue = 0 then VBlue = 1
         end if
-
       end if
     end select
-
   end with
 
   'Limpa o objeto
@@ -3553,32 +3161,26 @@ sub PegaObj (POX as integer, POY as integer)
   end if
 end sub
 
-'-------------------------------------------------------------------------------------------
-
 'Verifica possibilidade e inicia o empurrar de objetos
 
 function EmpurraObj (byval POX as integer, byval POY as integer, byval MDir as integer, byval Peso as integer, byval Quant as integer) as integer
   dim as integer Resultado, XR, PesoTemp
   Resultado= Comport(TpObjeto(objeto(POX, POY).Tp).Tipo).PEmpurra
   XR= 3 - (MDir * 2)
-
   'Antes, verifica se o objeto não está caindo nem vai começar a cair agora
   if (Comport(TpObjeto(Objeto(POX, POY).tp).Tipo).Cai =1 and POY < Mina.Alt and Comport(TpObjeto(Objeto(POX, POY+1).tp).Tipo).Apoia=0) or Objeto (POX, POY).Caindo=1 then
     Resultado=5
   else
-
     'Só faz verificação se ainda não tiver chegado ao canto da mina
     if POX >0 and POX < Mina.Larg then
       if Resultado + Peso > 2 then
         Resultado = 3
-
       elseif Resultado = 2 then
         if Quant=1 and Comport(TpObjeto(objeto(POX + XR, POY).Tp).Tipo).Vazio=1 and Objeto(POX + XR, POY - 1).caindo=0 then
           Resultado = 2
         else
           Resultado = 3
         end if
-
       elseif Resultado =1 then
         if Quant=1 then
           if Comport(TpObjeto(objeto(POX + XR, POY).Tp).Tipo).Vazio=1 and Objeto(POX + XR, POY - 1).caindo=0 then
@@ -3591,7 +3193,6 @@ function EmpurraObj (byval POX as integer, byval POY as integer, byval MDir as i
               Resultado = 3
             end if
           end if
-
         elseif quant = 2 and peso < 2 then
           if Comport(TpObjeto(objeto(POX + XR, POY).Tp).Tipo).Vazio=1 and Objeto(POX + XR, POY - 1).caindo=0 then
             Resultado = 1
@@ -3601,7 +3202,6 @@ function EmpurraObj (byval POX as integer, byval POY as integer, byval MDir as i
         else
           Resultado = 3
         end if
-
       elseif Resultado =0 then
         if Peso > 0 and Quant >2 then
           Resultado = 3
@@ -3631,16 +3231,12 @@ function EmpurraObj (byval POX as integer, byval POY as integer, byval MDir as i
   return Resultado
 end function
 
-'-------------------------------------------------------------------------------------------
-
 'Inicia uma explosao (bomba ou morte do boneco)
 
 sub Explode (byval EXX as integer, byval EXY as integer, byval XTam as integer)
   dim as integer LF, LG, NTam
   NTam=XTam
-  'midiOutShortMsg (hMidiOut, SomEx(XTam+1).COn1)
-  'midiOutShortMsg (hMidiOut, SomEx(XTam+1).COn2)
-  SomEx (XTam+1).Tempo = 16
+  Sound13(XTam+1)
 
   if XTam=2 then XTam=1
   Objeto (EXX, EXY).tp = 0
@@ -3675,11 +3271,7 @@ sub Explode (byval EXX as integer, byval EXY as integer, byval XTam as integer)
     .Tipo=XTam+1
     .Tempo=1
   end with
-
 end sub
-
-
-'-------------------------------------------------------------------------------------------
 
 'Esvazia o conteúdo da matriz da mina
 
@@ -3706,8 +3298,6 @@ sub LimpaMina
   MAPY = 0
 end sub
 
-'-------------------------------------------------------------------------------------------
-
 'Reinicia tabela de recordes
 
 sub LimpaTopDez
@@ -3720,8 +3310,6 @@ sub LimpaTopDez
   next
   close #1
 end sub
-
-'-------------------------------------------------------------------------------------------
 
 'Verifica se está entre os TOP 10, solicita nome e inclui na tabela
 
@@ -3774,10 +3362,7 @@ function VerificaRecorde as integer
   end if
 
   if Posit < 10 then return (Posit + 1) else return 0
-
 end function
-
-'-------------------------------------------------------------------------------------------
 
 'Le a tabela dos TOP 10
 
@@ -3795,8 +3380,6 @@ sub LeTopDez
   end if
 end sub
 
-'-------------------------------------------------------------------------------------------
-
 'Reinicia tabela de TOP 10
 
 sub MontaTopDez
@@ -3811,9 +3394,6 @@ sub MontaTopDez
   TopPt(8).nome = "Top9" : TopPt(8).pontos =  3000
   TopPt(9).nome = "Top10" : TopPt(9).pontos = 2000
 end sub
-
-
-'-------------------------------------------------------------------------------------------
 
 'Faz a troca de screens e ajusta o FPS
 
@@ -3836,8 +3416,6 @@ sub TrocaTelas
     sleep Falta, 1
   end if
  end sub
-
-'-------------------------------------------------------------------------------------------
 
 'Manda desenhar o quadro e escreve as mensagens
 
@@ -3906,8 +3484,6 @@ sub Mensagem (QCor as integer, Tipo as integer, T1 as string, T2 as string, T3 a
 
 end sub
 
-'-------------------------------------------------------------------------------------------
-
 'Desenha o quadro (para mensagens)
 
 sub DesBox (H as integer, V as integer, QCor as integer, OX as integer = 400, OY as integer = 300)
@@ -3948,15 +3524,11 @@ sub DesBox (H as integer, V as integer, QCor as integer, OX as integer = 400, OY
   end if
 end sub
 
-'-------------------------------------------------------------------------------------------
-
 'Desenha o LOGO do game
 
 sub PutLogo (LX as integer, LY as integer)
   put (LX, LY), BMP (211), trans
 end sub
-
-'-------------------------------------------------------------------------------------------
 
 function CTRX as integer
   with Boneco
@@ -3970,8 +3542,6 @@ function CTRX as integer
   end with
 end function
 
-'-------------------------------------------------------------------------------------------
-
 function CTRY as integer
   with Boneco
     if .Y < 8 then
@@ -3984,8 +3554,6 @@ function CTRY as integer
   end with
 end function
 
-'-------------------------------------------------------------------------------------------
-
 sub MarcaPt (Pontos as integer, X as integer, Y as integer)
   with  MSG (ProxMsg)
     .Ciclo = 63
@@ -3995,8 +3563,6 @@ sub MarcaPt (Pontos as integer, X as integer, Y as integer)
   end with
   ProxMsg = (ProxMsg + 1) mod 10
 end sub
-
-'-------------------------------------------------------------------------------------------
 
 'Simula pressionamento de teclas no modo demo
 
@@ -4107,23 +3673,17 @@ SaiDaqui:
 
 end function
 
-'-------------------------------------------------------------------------------------------
-
 'Le mina do arquivo (padrão)
 
 sub LeMinaIn (NMina as integer, SoQuant as integer = 0)
   dim as longint FilePos, FileTam
   dim as ushort MinaTemp, TotMinas
   dim as ubyte Temporary1
-  randomize
-
+  'randomize
   LimpaMina
-
   'zera contador de tesouros para iniciar a contagem
   Mina.Tesouros = 0
-
   'Abre arquivo
-
   'Verifica se o arquivo existe
   if fileexists ("minas.bin") then
     open "minas.bin" for binary as #1
@@ -4131,17 +3691,13 @@ sub LeMinaIn (NMina as integer, SoQuant as integer = 0)
     if FileTam > 20 then
       get #1, , TotMinas
       Jogo.NumMinas = TotMinas
-
       FilePos = 3
-
       if SoQuant = 0 then
-
         get #1, , MinaTemp
         get #1, , Mina.LArg
         get #1, , Mina.Alt
         get #1, , Mina.Noturno
         get #1, , Mina.Tempo
-
         while MinaTemp < NMina
           FilePos = FilePos + ((Mina.Alt * Mina.Larg) * 3) + 9
           get #1, FilePos, MinaTemp
@@ -4150,18 +3706,14 @@ sub LeMinaIn (NMina as integer, SoQuant as integer = 0)
           get #1, , Mina.Noturno
           get #1, , Mina.Tempo
         wend
-
         LeMinaDet 0
-
       end if
     else
       'MessageBox NULL,TXT(87), TXT(0), MB_ICONERROR
       print TXT(87), TXT(0)
       MudaStatus NoMenu
     end if
-
     close #1
-
   else  'Arquivo não existe
     'MessageBox NULL, TXT(88), TXT(0), MB_ICONERROR
     print TXT(88), TXT(0)
@@ -4169,15 +3721,12 @@ sub LeMinaIn (NMina as integer, SoQuant as integer = 0)
   end if
 end sub
 
-'-------------------------------------------------------------------------------------------
-
 'Le o desenho da mina (tiles)
 
 sub LeMinaDet (Editando as integer = 0)
   dim as integer MXR, MYR, F, G
   MXR=0
   MYR=0
-
   if Editando = 0 then
     if Mina.Larg < 24 then MXR = int (25 - Mina.Larg) / 2
     if Mina.alt < 16 then MYR = int(17 - Mina.Alt) / 2
@@ -4218,8 +3767,6 @@ sub LeMinaDet (Editando as integer = 0)
   Iniciado=0
 end sub
 
-'-------------------------------------------------------------------------------------------
-
 'Faz levantamento e contagem das minas personalizadas
 
 sub LeMinasPers
@@ -4247,21 +3794,14 @@ sub LeMinasPers
   QuantPers = Ordem
 end sub
 
-'-------------------------------------------------------------------------------------------
-
 'Gera um som aleatório (Game Over)
 
 sub SorteiaNotaGameOver
   dim Nota as integer
-
-  randomize
-
+  'randomize
   if Jogo.Status <> GameOver or (rnd * 500) < 10 then
     Nota = (int(rnd * 32) + 64) shl 8
-    'midiOutShortMsg (hMidiOut, &H65c7)
-    'midiOutShortMsg (hMidiOut, &H600087 Or UltNotaGameOver)
-    'midiOutShortMsg (hMidiOut, &H600097 Or Nota)
-    UltNotaGameOver = Nota
+    Sound14(Nota)
   end if
 end sub
 
@@ -4271,9 +3811,7 @@ end sub
 
 sub SorteiaNotaVenceu
   dim Nota as integer
-
-  randomize
-
+  'randomize
   if (QtdNotasVenceu = 0) or (QtdNotasVenceu < 6 and Clock - TimerNotaVenceu >= .11) then
     QtdNotasVenceu += 1
     if QtdNotasVenceu = 1 then
@@ -4282,26 +3820,16 @@ sub SorteiaNotaVenceu
       Nota = (int(rnd * 6) + (UltNotaGameOver shr 8) - 1) shl 8
       if Nota = ultNotaGameOver then Nota -= 512
     end if
-    'midiOutShortMsg (hMidiOut, &H76c0)  '26, 29, 2d, 6b
-    'midiOutShortMsg (hMidiOut, &H6bc1)  '26, 29, 2d, 6b
-    'midiOutShortMsg (hMidiOut, &H5f0080 Or (UltNotaGameOver + 513))
-    'midiOutShortMsg (hMidiOut, &H6f0080 Or UltNotaGameOver)
-    'midiOutShortMsg (hMidiOut, &H600090 Or (Nota + 513))
-    'midiOutShortMsg (hMidiOut, &H6f0090 Or Nota)
-    UltNotaGameOver = Nota
+    Sound15(Nota)
     TimerNotaVenceu = Clock
   elseif Clock - TimerNotaVenceu >= .6 then
     QtdNotasVenceu = 0
   end if
 end sub
 
-
-'-------------------------------------------------------------------------------------------
-
 'Regrava configurações: Volume e maior mina alcançada
 
 sub RegravaConfig
-
   kill "config.min"
   open "config.min" for output as #1
   print #1, jogo.volume
@@ -4309,8 +3837,6 @@ sub RegravaConfig
   print #1, IAtual
   close #1
 end sub
-
-'-------------------------------------------------------------------------------------------
 
 'Le textos do programa, no idioma selecionado
 
@@ -4330,33 +3856,25 @@ function LeTXT (Idioma as string) as integer
   end if
 end function
 
-'-------------------------------------------------------------------------------------------
-
 'Define os textos, em português
 
 sub ProcIdiomas ()
   dim as string Arquivo
   dim as integer F
-
   'Conta e carrega matriz com idiomas disponíveis
   IQuant = 0
   Arquivo = dir ("lang/*.lng")
   while len(Arquivo) > 0 and IQuant < 9
-    
     Idioma (IQuant) = left(Arquivo, len(Arquivo) - 4)
     IQuant += 1
     Arquivo = dir ()
   wend
-
   'Localiza idioma atual na matriz
   NAtual = 0
   for f = 0 to IQuant
     if Idioma (F) = IAtual then NAtual = F
   next
-
 end sub
-
-'-------------------------------------------------------------------------------------------
 
 'Verifica se é pra ganhar vida
 
@@ -4365,8 +3883,6 @@ sub VeSeGanhaVida (Acrescimo as integer)
     Boneco.vidas += 1
   end if
 end sub
-
-'-------------------------------------------------------------------------------------------
 
 'Calcula o bonus de acordo com o tempo para concluir a mina
 
@@ -4381,37 +3897,14 @@ sub CalculaBonusTempo
   VeSeGanhaVida PtBonus
 end sub
 
-'-------------------------------------------------------------------------------------------
-
-'Define os textos, em português
-/'
-sub LeTXTBase
-end sub
-'/
-'-------------------------------------------------------------------------------------------
-'-------------------------------------------------------------------------------------------
-'-------------------------------------------------------------------------------------------
-
 'ROTINAS REFERENTES AO EDITOR DE MINAS
-
-'-------------------------------------------------------------------------------------------
-'-------------------------------------------------------------------------------------------
-'-------------------------------------------------------------------------------------------
-
-
-
-'-------------------------------------------------------------------------------------------
 
 'Escreve um número pequeno e de 2 algarismos como cabeçalho de linha e coluna
 
 sub EscreveNumeroPeq (byval Numero as integer, X1 as integer, Y1 as integer)
-
   put (x1, Y1), BMP (274), (int(Numero/10) * 6, 0) - step(5, 7), trans
   put (x1 + 6, Y1), BMP (274), ((Numero mod 10) * 6, 0)- step(5, 7), trans
-
 end sub
-
-'-------------------------------------------------------------------------------------------
 
 'Desenha um quadro
 
@@ -4432,8 +3925,6 @@ sub Dlinha (x1 as integer, y1 as integer, x2 as integer, y2 as integer, QualCor 
   line (x2 - 2, y1) - (x2, y2), CorRGB, BF
 end sub
 
-'-------------------------------------------------------------------------------------------
-
 'Conta as pedras existentes na mina
 
 function ContaTesouros as integer
@@ -4448,14 +3939,11 @@ function ContaTesouros as integer
   return Contagem
 end function
 
-'-------------------------------------------------------------------------------------------
-
 'Acha a coluna do objeto mais abaixo
 
 function MaiorLinha as integer
   dim as integer LMax, f, g
   LMax = 1
-
   for F = 0 to 99
     for G = 0 to 59
       if objeto(f,g).TP > 0 or fundo (f, g) <> 1 or frente (f,g )>0 then
@@ -4466,14 +3954,11 @@ function MaiorLinha as integer
   return LMax
 end function
 
-'-------------------------------------------------------------------------------------------
-
 'Acha a coluna do objeto mais à direita
 
 function MaiorColuna as integer
   dim as integer LMax, f, g
   LMax = 1
-
   for F = 0 to 99
     for G = 0 to 59
       if objeto(f,g).TP > 0 or fundo (f, g) <> 1 or frente (f,g )>0 then
@@ -4484,21 +3969,15 @@ function MaiorColuna as integer
   return LMax
 end function
 
-'-------------------------------------------------------------------------------------------
-
 'Salva a mina em arquivo
-
 
 sub SalvaMina (ParaTestar as integer = 0)
   dim as string Linha, NArq, LMNum, LmTec
   dim as integer nmina, MaiorX, MaiorY, ValTemp, f, g
-
   'zera contador de tesouros para verificar se tem
   Mina.Tesouros = ContaTesouros ()
-
   cls
   TrocaTelas
-
   if Mina.tesouros = 0 then
     LimpaTeclado
     cls
@@ -4514,15 +3993,12 @@ sub SalvaMina (ParaTestar as integer = 0)
     LimpaTeclado
   else
     if ParaTestar = 0 then
-
       LMNum= str(Mina.numero)
       LimpaTeclado
       LMTec = ""
-
       while LMTec<>Chr(27) and LMTec<>Chr(13)
         cls
         Mensagem 5, 4, TXT(101), TXT(102), LMNum & chr (32 + 63 * (int(Clock * 2) mod 2))
-
         if LMTec >= "0" and LMTec <= "9" and len (LMNum) < 3 then
           if LMNum = "0" then LMNum = "0"
           LMNum += LMTec
@@ -4531,21 +4007,16 @@ sub SalvaMina (ParaTestar as integer = 0)
         end if
         TrocaTelas
         LMTec=inkey
-
       wend
       cls
       TrocaTelas
-
       NArq = "minas/m" + right("000" & str(LMNum),3) + ".map"
       Mina.numero= val(LMNum)
     else
       NArq = "minas/teste.map"
     end if
-
     cls
-
     if ParaTestar <> 0 or LMTec = chr (13) then
-
       if ParaTestar = 0 then
         LMTec=""
         while inkey<>""
@@ -4564,13 +4035,10 @@ sub SalvaMina (ParaTestar as integer = 0)
         wend
         cls
       end if
-
       if ParaTestar <> 0 or LMTec <> chr(27) then
         if ParaTestar = 0 then
           Mina.Noturno = Opcao1
-
           LMNum=str(Mina.Tempo)
-
           while inkey <> ""
             sleep 10
           wend
@@ -4589,19 +4057,15 @@ sub SalvaMina (ParaTestar as integer = 0)
           wend
           cls
         end if
-
         if ParaTestar <> 0 or lmtec = chr(13) then
           if ParaTestar = 0 then
             Mina.Tempo=val(LMNum)
             Mina.alterada = 0
             EdShow = 2
           end if
-
           'Inicia gravação da mina:
-
           Mina.Larg = MaiorColuna () + 1
           Mina.Alt = MaiorLinha () + 1
-
           'Salva dimensões, se é noturno/diurno e o tempo (0=livre)
           kill Narq
           open NArq for binary as #1
@@ -4609,10 +4073,8 @@ sub SalvaMina (ParaTestar as integer = 0)
           put #1,, Mina.Alt
           put #1,, Mina.Noturno
           put #1,, Mina.Tempo
-
           'Escreve cada linha
           for g=0 to Mina.Alt-1
-
             for f= 0 to Mina.Larg-1
               put #1,,fundo(f,g)
               put #1,,frente(f,g)
@@ -4626,7 +4088,6 @@ sub SalvaMina (ParaTestar as integer = 0)
             next
           next
           close #1
-
           cls
           TrocaTelas
           cls
@@ -4652,20 +4113,14 @@ sub SalvaMina (ParaTestar as integer = 0)
       UltTecla = "ESC"
     end if
   end if
-
   LimpaTeclado
-
 end sub
-
-'-------------------------------------------------------------------------------------------
 
 'Rotina principal do EDITOR - pode ser mudada para um item dentro de "Joga"
 
 sub Edita
-
   dim as integer F, G
   PosMouse = PosMouseEd ()
-
   select case Jogo.EdStatus
   case Editando
     EdX1 = int (MouseX / 32)
@@ -4766,7 +4221,6 @@ sub Edita
         Jogo.EdStatus = Editando
       else
         if MouseLiberou = 1 then
-
           Jogo.EdStatus = Editando
           GravaUndo
           Mina.alterada = 1
@@ -4784,7 +4238,6 @@ sub Edita
               end select
             next
           next
-
         end if
       end if
     end if
@@ -4961,9 +4414,7 @@ sub Edita
         IniciaVida
         MudaStatus Testando
       end if
-
       LimpaTeclado 1
-
     end if
 
   case RespExit
@@ -4990,24 +4441,17 @@ sub Edita
     else
       MudaStatus NoMenu
     end if
-
     LimpaTeclado 1
-
   end select
 
   Objeto (Boneco.x, boneco.y).Tp = 0
-
 end sub
-
-'-------------------------------------------------------------------------------------------
 
 sub EncerraTeste
   LeMinaOUT -1, 1
   MudaStatus Editor
   kill "minas/teste.map"
 end sub
-
-'-------------------------------------------------------------------------------------------
 
 'Desenha um item na tela do editor, conforme seu tipo
 
@@ -5043,8 +4487,6 @@ sub DesenhaItem (ITX as integer, ITY as integer, ITN as integer)
     Escreve "?", ITX + 10, ITY + 7
   end if
 end sub
-
-'-------------------------------------------------------------------------------------------
 
 'Encontra a posição do mouse (sobre qual comando ele está)
 
@@ -5110,8 +4552,6 @@ function PosMouseEd () as integer
   return Resposta
 end function
 
-'-------------------------------------------------------------------------------------------
-
 'Limpa dados da mina usados pelo editor (nº, tempo, etc)
 
 sub LimpaMinaEditor
@@ -5127,7 +4567,6 @@ sub LimpaMinaEditor
     BonecoX (h) = 0
     BonecoY (h) = 0
   next
-
   Mina.alterada = 0
   LMTec = ""
   UMTec = ""
@@ -5143,8 +4582,6 @@ sub LimpaMinaEditor
   Mina.Numero = 0
   Mina.Noturno = 0
 end sub
-
-'-------------------------------------------------------------------------------------------
 
 'Pergunta se pode fechar mina não salva
 
@@ -5174,16 +4611,12 @@ function PergFecha () as integer
   wend
   cls
   LimpaTeclado 1
-
   if Opcao1 = 1 or LMTec = chr(27) then
     return 0
   else
     return 1
   end if
-
 end function
-
-'-------------------------------------------------------------------------------------------
 
 'Coloca coordenadas em ordem crescente
 
@@ -5204,8 +4637,6 @@ sub SwapEDXY
   end if
 end sub
 
-'-------------------------------------------------------------------------------------------
-
 'Grava situação para possível futuro UNDO
 
 sub GravaUndo
@@ -5218,17 +4649,14 @@ sub GravaUndo
       UndoObjeto (MatrizAtual, f, g) = Objeto (F, g).tp
     next
   next
-
   BonecoX (MatrizAtual) = Boneco.X
   BonecoY (MatrizAtual) = Boneco.Y
-
   if MatrizAtual = MaxUndo then
     MatrizAtual = 0
   else
     MatrizAtual += 1
   end if
   MatrizRedoLimite = MatrizAtual
-
   if MatrizAtual = MatrizUndoLimite then
     if MatrizUndoLimite = MaxUndo then
       MatrizUndoLimite = 0
@@ -5236,11 +4664,7 @@ sub GravaUndo
       MatrizUndoLimite += 1
     end if
   end if
-
 end sub
-
-
-'-------------------------------------------------------------------------------------------
 
 'Faz um undo no editor
 
@@ -5257,7 +4681,6 @@ sub FazUndo
     BonecoX (MatrizAtual) = Boneco.X
     BonecoY (MatrizAtual) = Boneco.Y
   end if
-
   if MatrizAtual <> MatrizUndoLimite then
     if MatrizAtual = 0 then
       MatrizAtual = MaxUndo
@@ -5275,8 +4698,6 @@ sub FazUndo
     Boneco.Y = BonecoY (MatrizAtual)
   end if
 end sub
-
-'-------------------------------------------------------------------------------------------
 
 'Faz um redo no editor
 
@@ -5300,11 +4721,8 @@ sub FazRedo
   end if
 end sub
 
-'-------------------------------------------------------------------------------------------
-
 sub LimpaTeclado (IncLMTec as integer = 0)
   dim as integer EsperaMais, f
-
   if IncLMTec <> 0 then
     if LMTec = " " then
       UltTecla = "]"
@@ -5317,7 +4735,6 @@ sub LimpaTeclado (IncLMTec as integer = 0)
       Tecla = "ESC"
     end if
   end if
-
   EsperaMais = 1
   while EsperaMais = 1
     EsperaMais = 0
@@ -5326,13 +4743,10 @@ sub LimpaTeclado (IncLMTec as integer = 0)
     next
     sleep 1, 1
   wend
-
   while inkey <> ""
     sleep 1, 1
   wend
 end sub
-
-'-------------------------------------------------------------------------------------------
 
 'Faz a leitura do mouse
 
@@ -5349,8 +4763,6 @@ sub LeMouse
   if (MouseXAnt <> MouseX) or (MouseYAnt <> MouseY) then MouseMoveu = 1 else MouseMoveu = 0
   MouseWDir = sgn (MouseW - MouseWAnt)
 end sub
-
-'-------------------------------------------------------------------------------------------
 
 'Faz a mudança de um status para outro, arranjando os parametros necessários
 
@@ -5393,24 +4805,6 @@ sub MudaStatus (NovoStatus as integer)
   end select
   Jogo.Status = NovoStatus
 end sub
-
-'-------------------------------------------------------------------------------------------
-
-'Desativa os sons ligados
-
-sub DesligaSons
-  dim as integer F, G
-  for f = 1 to 6
-    for g = 1 to 4
-      'midiOutShortMsg(hMidiOut, Som (f, g).COff)
-    next
-  next
-  for f = 1 to 7
-    'midiOutShortMsg(hMidiOut, SomEx (f).COff)
-  next
-end sub
-
-'-------------------------------------------------------------------------------------------
 
 'Pede confirmação se é pra encerrar o teste da mina sendo editada
 
