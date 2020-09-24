@@ -21,8 +21,8 @@ dim shared hMidiOut as HMIDIOUT
 #else
 dim shared as integer hEnterMenuItem, hFindGem, hFindObject, hDie
 #endif
-dim shared as TSons Som (1 to 6, 1 to 4), SomEx (1 to 7)
-dim shared as ubyte Toca (1 to 6, 1 to 4), QtdNotasVenceu
+dim shared as TSons Som(1 to 6, 1 to 4), SomEx(1 to 7)
+dim shared as ubyte Toca(1 to 6, 1 to 4), QtdNotasVenceu
 dim shared as DWord UltNotaGameOver, resposta
 dim shared as double TimerNotaVenceu
 

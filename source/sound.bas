@@ -50,13 +50,13 @@ sub LoadSounds
   Som(6, 3).COn1 = &H7fc5 : Som(6, 3).COn2 = &H7f5595: Som(6, 3).COff = &H7f5585 'Furando carro ou item
   Som(6, 4).COn1 = &H7fc5 : Som(6, 4).COn2 = &H7f5495: Som(6, 4).COff = &H7f5485 'Furando caixa
   'Sons: Explosões
-  SomEx(1).COn1 = &H7fc6 : SomEx(1).COn2 = &H7f3296: SomEx(1).COff = &H7f3286  'Ok Explosao bomba pequena
-  SomEx(2).COn1 = &H7fc6 : SomEx(2).COn2 = &H7f2f96: SomEx(2).COff = &H7f2f86  'Ok Explosao bomba grande
-  SomEx(3).COn1 = &H7fc6 : SomEx(3).COn2 = &H7f2396: SomEx(3).COff = &H7f2386  'Ok Explosao boneco
-  SomEx(4).COn1 = &H72c6 : SomEx(4).COn2 = &H6f4096: SomEx(4).COff = &H6f4086  'Ok pega item
-  SomEx(5).COn1 = &H72c6 : SomEx(5).COn2 = &H5f4896: SomEx(5).COff = &H5f4886  'Ok Pega tesouro
-  SomEx(6).COn1 = &H15c6 : SomEx(6).COn2 = &H6f2996: SomEx(6).COff = &H6f2986  'Ok Dame
-  SomEx(7).COn1 = &H7ec6 : SomEx(7).COn2 = &H6f4196: SomEx(7).COff = &H6f4186  'Ok Empurrando
+  SomEx(1).COn1 = &H7fc6 : SomEx(1).COn2 = &H7f3296: SomEx(1).COff = &H7f3286 'Ok Explosao bomba pequena
+  SomEx(2).COn1 = &H7fc6 : SomEx(2).COn2 = &H7f2f96: SomEx(2).COff = &H7f2f86 'Ok Explosao bomba grande
+  SomEx(3).COn1 = &H7fc6 : SomEx(3).COn2 = &H7f2396: SomEx(3).COff = &H7f2386 'Ok Explosao boneco
+  SomEx(4).COn1 = &H72c6 : SomEx(4).COn2 = &H6f4096: SomEx(4).COff = &H6f4086 'Ok pega item
+  SomEx(5).COn1 = &H72c6 : SomEx(5).COn2 = &H5f4896: SomEx(5).COff = &H5f4886 'Ok Pega tesouro
+  SomEx(6).COn1 = &H15c6 : SomEx(6).COn2 = &H6f2996: SomEx(6).COff = &H6f2986 'Ok Dame
+  SomEx(7).COn1 = &H7ec6 : SomEx(7).COn2 = &H6f4196: SomEx(7).COff = &H6f4186 'Ok Empurrando
 end sub
 
 sub FreeSound
@@ -103,7 +103,7 @@ sub Sound02
   midiOutShortMsg(hMidiOut, SomEx(6).COn1)
   midiOutShortMsg(hMidiOut, SomEx(6).COn2)
 #else
-  shell("espeak """ & __Line__ & """")
+  windowtitle "Sound02"
 #endif
 end sub
 
@@ -118,7 +118,7 @@ sub Sound04
   midiOutShortMsg(hMidiOut, Som(6, 1).COn1)
   midiOutShortMsg(hMidiOut, Som(6, 1).COn2)
 #else
-  shell("espeak """ & __Line__ & """")
+  windowtitle "Sound04"
 #endif
   Som(6,1).Tempo = 1
 end sub
@@ -128,7 +128,7 @@ sub Sound05
   midiOutShortMsg(hMidiOut, SomEx(7).COn1)
   midiOutShortMsg(hMidiOut, SomEx(7).COn2)
 #else
-  shell("espeak """ & __Line__ & """")
+  windowtitle "Sound05"
 #endif
 end sub
 
@@ -137,7 +137,7 @@ sub Sound06
   midiOutShortMsg(hMidiOut, SomEx(6).COn1)
   midiOutShortMsg(hMidiOut, SomEx(6).COn2)
 #else
-  shell("espeak """ & __Line__ & """")
+  windowtitle "Sound06"
 #endif
   SomEx(6).Tempo = 10
 end sub
@@ -147,14 +147,14 @@ sub Sound07(ASom as integer)
   midiOutShortMsg(hMidiOut, Som(5, ASom).COn1)
   midiOutShortMsg(hMidiOut, Som(5, ASom).COn2)
 #else
-  shell("espeak """ & __Line__ & """")
+  windowtitle "Sound07"
 #endif
   Som(5, ASom).Tempo = 16
 end sub
 
 sub Sound08
   dim as integer f, g
-  for f = 1 to 6 'Rotina para gerar o som
+  for f = 1 to 6
     for g = 1 to 4
       if toca(f, g) = 1 then
 #ifdef __FB_WIN32__
@@ -172,7 +172,7 @@ sub Sound09
 #ifdef __FB_WIN32__
   midiOutShortMsg(hMidiOut, &H6f0087 or UltNotaGameOver)
 #else
-  shell("espeak """ & __Line__ & """")
+  windowtitle "Sound09"
 #endif
 end sub
 
@@ -181,7 +181,7 @@ sub Sound10
   midiOutShortMsg(hMidiOut, &H6f0080 or UltNotaGameOver)
   midiOutShortMsg(hMidiOut, &H5f0080 or(UltNotaGameOver + 513))
 #else
-  shell("espeak """ & __Line__ & """")
+  windowtitle "Sound10"
 #endif
 end sub
 
@@ -221,26 +221,24 @@ sub Sound14(Nota as integer)
   midiOutShortMsg(hMidiOut, &H600087 or UltNotaGameOver)
   midiOutShortMsg(hMidiOut, &H600097 or Nota)
 #else
-  shell("espeak """ & __Line__ & """")
+  windowtitle "Sound14"
 #endif
   UltNotaGameOver = Nota
 end sub
 
 sub Sound15(Nota as integer)
 #ifdef __FB_WIN32__
-  midiOutShortMsg(hMidiOut, &H76c0)  '26, 29, 2d, 6b
-  midiOutShortMsg(hMidiOut, &H6bc1)  '26, 29, 2d, 6b
+  midiOutShortMsg(hMidiOut, &H76c0)
+  midiOutShortMsg(hMidiOut, &H6bc1)
   midiOutShortMsg(hMidiOut, &H5f0080 or(UltNotaGameOver + 513))
   midiOutShortMsg(hMidiOut, &H6f0080 or UltNotaGameOver)
   midiOutShortMsg(hMidiOut, &H600090 or(Nota + 513))
   midiOutShortMsg(hMidiOut, &H6f0090 or Nota)
 #else
-  shell("espeak """ & __Line__ & """")
+  windowtitle "Sound15"
 #endif
   UltNotaGameOver = Nota
 end sub
-
-'Desativa os sons ligados
 
 sub DesligaSons
 #ifdef __FB_WIN32__
