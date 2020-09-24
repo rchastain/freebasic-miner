@@ -19,7 +19,7 @@ end type
 #ifdef __FB_WIN32__
 dim shared hMidiOut as HMIDIOUT
 #else
-dim shared as integer hEnterMenuItem, hFindGem, hFindObject, hDie
+dim shared as integer hEnterMenuItem, hFindGem, hFindObject, hDie, hUseDrill
 #endif
 dim shared as TSons Som(1 to 6, 1 to 4), SomEx(1 to 7)
 dim shared as ubyte Toca(1 to 6, 1 to 4), QtdNotasVenceu
@@ -45,7 +45,6 @@ declare sub Sound12
 declare sub Sound13(XTam1 as integer)
 declare sub Sound14(Nota as integer)
 declare sub Sound15(Nota as integer)
-'Desativa os sons ligados
 declare sub DesligaSons
 
 #include once "sound.bas"

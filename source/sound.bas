@@ -14,6 +14,7 @@ function InitSound as boolean
   if not fbs_Load_WAVfile("res/gem.wav", @hFindGem) then DEBUG_LOG("fbs_Load_WAVfile false")
   if not fbs_Load_WAVfile("res/object.wav", @hFindObject) then DEBUG_LOG("fbs_Load_WAVfile false")
   if not fbs_Load_WAVfile("res/death.wav", @hDie) then DEBUG_LOG("fbs_Load_WAVfile false")
+  if not fbs_Load_WAVfile("res/usedrill.wav", @hUseDrill) then DEBUG_LOG("fbs_Load_WAVfile false")
 #endif
   return true
 end function
@@ -147,7 +148,7 @@ sub Sound07(ASom as integer)
   midiOutShortMsg(hMidiOut, Som(5, ASom).COn1)
   midiOutShortMsg(hMidiOut, Som(5, ASom).COn2)
 #else
-  windowtitle "Sound07"
+  fbs_Play_Wave(hUseDrill)
 #endif
   Som(5, ASom).Tempo = 16
 end sub

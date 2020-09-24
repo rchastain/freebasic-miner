@@ -160,7 +160,7 @@ type TMina
   X        as integer  'Posição X inicial do boneco
   Y        as integer  'Posição Y inicial do boneco
   Noturno  as ubyte    'Se a mina é noturna ou não
-  Tempo    as uinteger 'Tempo para concluir a mina
+  Tempo    as ulong    'Tempo para concluir a mina
   Alterada as integer  'Se foi feita alteraçao depois de ler ou de gravar pela ultima vez
 end type
 
@@ -212,7 +212,7 @@ type TObj
   Caindo     as byte     '0=não; 1=sim
   AntCaindo  as byte     'Se já estava caindo anteriormente
   Empurrando as byte     '0=não; 1=direita; 2=esquerda
-  Passo      as integer  'Número do passo no movimento
+  Passo      as long     'Número do passo no movimento
 end type
 
 'Top Score
