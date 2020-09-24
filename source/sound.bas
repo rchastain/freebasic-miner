@@ -1,5 +1,5 @@
 
-function InitSound as boolean
+function InitSoundSystem as boolean
 #ifdef __FB_WIN32__
   if midiOutOpen(@hMidiOut, MIDI_MAPPER, 0, 0, CALLBACK_NULL) then
     if hMidiOut <> 0 then midiOutClose hMidiOut
@@ -10,11 +10,6 @@ function InitSound as boolean
     DEBUG_LOG("fbs_Init false")
     return false
   end if
-  if not fbs_Load_WAVfile("res/menu.wav", @hEnterMenuItem) then DEBUG_LOG("fbs_Load_WAVfile false")
-  if not fbs_Load_WAVfile("res/gem.wav", @hFindGem) then DEBUG_LOG("fbs_Load_WAVfile false")
-  if not fbs_Load_WAVfile("res/object.wav", @hFindObject) then DEBUG_LOG("fbs_Load_WAVfile false")
-  if not fbs_Load_WAVfile("res/death.wav", @hDie) then DEBUG_LOG("fbs_Load_WAVfile false")
-  if not fbs_Load_WAVfile("res/usedrill.wav", @hUseDrill) then DEBUG_LOG("fbs_Load_WAVfile false")
 #endif
   return true
 end function
@@ -58,6 +53,15 @@ sub LoadSounds
   SomEx(5).COn1 = &H72c6 : SomEx(5).COn2 = &H5f4896: SomEx(5).COff = &H5f4886 'Ok Pega tesouro
   SomEx(6).COn1 = &H15c6 : SomEx(6).COn2 = &H6f2996: SomEx(6).COff = &H6f2986 'Ok Dame
   SomEx(7).COn1 = &H7ec6 : SomEx(7).COn2 = &H6f4196: SomEx(7).COff = &H6f4186 'Ok Empurrando
+#ifndef __FB_WIN32__
+  if not fbs_Load_WAVfile("res/EnterMenuItem.wav", @hEnterMenuItem) then DEBUG_LOG("fbs_Load_WAVfile false")
+  if not fbs_Load_WAVfile("res/FindGem.wav", @hFindGem) then DEBUG_LOG("fbs_Load_WAVfile false")
+  if not fbs_Load_WAVfile("res/FindObject.wav", @hFindObject) then DEBUG_LOG("fbs_Load_WAVfile false")
+  if not fbs_Load_WAVfile("res/Die.wav", @hDie) then DEBUG_LOG("fbs_Load_WAVfile false")
+  if not fbs_Load_WAVfile("res/UseDrill.wav", @hUseDrill) then DEBUG_LOG("fbs_Load_WAVfile false")
+  if not fbs_Load_WAVfile("res/UsePickaxe.wav", @hUsePickaxe) then DEBUG_LOG("fbs_Load_WAVfile false")
+  if not fbs_Load_WAVfile("res/CannotUse.wav", @hCannotUse) then DEBUG_LOG("fbs_Load_WAVfile false")
+#endif
 end sub
 
 sub FreeSound
@@ -75,7 +79,6 @@ sub Silencia
         Som(f, g).Tempo -=1
 #ifdef __FB_WIN32__
         if Som(f, g).Tempo = 0 then midiOutShortMsg(hMidiOut, Som(f,g).COff)
-#else
 #endif
       end if
     next
@@ -83,7 +86,6 @@ sub Silencia
       SomEx(f).Tempo -= 1
 #ifdef __FB_WIN32__
       if SomEx(f).Tempo = 0 then midiOutShortMsg(hMidiOut, SomEx(f).COff)
-#else
 #endif
     end if
   next
@@ -119,7 +121,7 @@ sub Sound04
   midiOutShortMsg(hMidiOut, Som(6, 1).COn1)
   midiOutShortMsg(hMidiOut, Som(6, 1).COn2)
 #else
-  windowtitle "Sound04"
+  fbs_Play_Wave(hUsePickaxe)
 #endif
   Som(6,1).Tempo = 1
 end sub
@@ -133,12 +135,12 @@ sub Sound05
 #endif
 end sub
 
-sub Sound06
+sub PlaySoundCannotUse
 #ifdef __FB_WIN32__
   midiOutShortMsg(hMidiOut, SomEx(6).COn1)
   midiOutShortMsg(hMidiOut, SomEx(6).COn2)
 #else
-  windowtitle "Sound06"
+  fbs_Play_Wave(hCannotUse)
 #endif
   SomEx(6).Tempo = 10
 end sub
@@ -216,32 +218,32 @@ sub Sound13(XTam1 as integer)
   SomEx(XTam1).Tempo = 16
 end sub
 
-sub Sound14(Nota as integer)
+sub PlaySoundGameOver(Nota as integer)
 #ifdef __FB_WIN32__
   midiOutShortMsg(hMidiOut, &H65c7)
   midiOutShortMsg(hMidiOut, &H600087 or UltNotaGameOver)
   midiOutShortMsg(hMidiOut, &H600097 or Nota)
 #else
-  windowtitle "Sound14"
+  windowtitle "PlaySoundGameOver"
 #endif
   UltNotaGameOver = Nota
 end sub
 
-sub Sound15(Nota as integer)
+sub PlaySoundGameWon(Nota as integer)
 #ifdef __FB_WIN32__
   midiOutShortMsg(hMidiOut, &H76c0)
   midiOutShortMsg(hMidiOut, &H6bc1)
-  midiOutShortMsg(hMidiOut, &H5f0080 or(UltNotaGameOver + 513))
+  midiOutShortMsg(hMidiOut, &H5f0080 or (UltNotaGameOver + 513))
   midiOutShortMsg(hMidiOut, &H6f0080 or UltNotaGameOver)
-  midiOutShortMsg(hMidiOut, &H600090 or(Nota + 513))
+  midiOutShortMsg(hMidiOut, &H600090 or (Nota + 513))
   midiOutShortMsg(hMidiOut, &H6f0090 or Nota)
 #else
-  windowtitle "Sound15"
+  windowtitle "PlaySoundGameWon"
 #endif
   UltNotaGameOver = Nota
 end sub
 
-sub DesligaSons
+sub TurnOffSounds
 #ifdef __FB_WIN32__
   dim as integer f, g
   for f = 1 to 6

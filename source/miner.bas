@@ -1,18 +1,18 @@
 
-' FreeBasic Miner 1.0 - 2011
+' FreeBASIC Miner
 
 #include once "fbgfx.bi"
 #include once "file.bi"
+#include once "log.bi"
+#include once "sound.bi"
+#include once "types.bi"
 
 #if __fb_lang__ = "fb"
 using FB
 #endif
 
-#include once "log.bi"
-#include once "sound.bi"
-
 function Clock() as double
-/' https://www.freebasic.net/forum/viewtopic.php?p=276085#p276085 '/
+' https://www.freebasic.net/forum/viewtopic.php?p=276085#p276085
   static as integer init = 0
   static as double startTimer
   if init = 0 then
@@ -31,256 +31,70 @@ end function
 #define MaxUndo 49
 #define DefaultLanguage "Portuguese"
 
-const C255 = chr(255)
+const CAppName = "FreeBASIC Miner"
+const CAppVer  = "1.0"
+const CBuild   = "build " & __DATE__ & " " & __TIME__ & " " & __FB_SIGNATURE__
+const CAppInfo = CAppName & " " & CAppVer & " " & CBuild
+const C255     = chr(255)
 
-enum  'opções do menu
-  Jogar
-  IrPara
-  VerTop
-  Sobre
-  Volume
-  EscIdioma
-  Custom_
-  Editar
-  Sair
-end enum
-
-enum  'status do programa
-  NoMenu
-  Configs
-  Jogando
-  ModoDemo
-  Testando
-  Pausado
-  GameOver
-  ModoMapa
-  Instruc
-  VenceuMina
-  VenceuJogo
-  Top10
-  SelIdioma
-  Editor
-end enum
-
-enum  'Posição do mouse no editor
-  EdForaTela
-  EdTela
-  EdInicio
-  EdEsquerda
-  EdDireita
-  EdFim
-  EdBarra
-  EdItem
-  EdNovo
-  EdAbre
-  EdMove
-  EdSalva
-  EdVisao
-  EdMudaGrid
-  EdApaga
-  EdTesta
-  EdUndo
-  EdRedo
-  EdEXIT
-end enum
-
-enum  'Status do editor
-  Editando
-  Selecionando
-  RespNovo
-  RespAbrindo
-  EdMovendo
-  RespSalvar
-  Apagando0
-  Apagando1
-  RespTesta
-  RespExit
-end enum
-
-'Jogo
-type TJogo
-  Status       as integer  'Status do programa
-  Status0      as integer  'Status no início do ciclo, para comparar abaixo
-  StatusAnt    as integer  'Idem acima
-  EdStatus     as integer  'Status do editor de minas
-  UltExplosao  as integer  'Ponto para incluir nova explosão
-  Passos       as integer  'Número de ciclos para concluir um movimento
-  TamanhoPasso as integer  'Espaço percorrido em cada passo
-  Ciclo        as integer  'Ciclo atual (0 a passos-1)
-  DelayMSec    as integer  'Milisegundos por quardo
-  UltTimer     as long     'Marcador de tempo para ajustar FPS
-  Encerra      as integer  'Sai do jogo (0=não)
-  SeqCiclo     as integer  'Sequencia de ciclos (0-999)
-  Player       as integer  '0=Jogador 1;   1=Jogador 2
-  TelaInstr    as integer  'Número da tela de instruções
-  NumMinas     as integer  'Número de minas disponíveis
-  NumVidas     as integer  'Número de vidas ao iniciar partida
-  Volume       as ubyte    'Volume dos efeitos sonoros
-  MaxAlcancada as uinteger 'Número mais alto de mina alcançado até o momento
-end type
-
-'Boneco
-type TBoneco
-  Mina           as integer  'Número da mina (caverna)
-  Vidas          as integer  'Número de vidas
-  Pontos         as long     'Pontuação atual
-  Morreu         as integer  '0=vivo 1~=passos
-  UltDir         as integer  'Ao parar, para onde fica de frente
-  DirAtual       as integer  'Para onde está indo (0=parado 1=direita 2=esquerda 3=subindo 4=descendo 5=caindo)
-  Empurrando     as integer  'Se está empurrando objetos
-  Passo          as integer  'Passo do movimento (0=parado; 1 a jogo.passos)
-  Img            as integer  'Número da imagem
-  ImgX           as integer  'X da posição absoluta na tela
-  ImgY           as integer  'Y da posição absoluta na tela
-  X              as integer  'Posição X (quadro)
-  Y              as integer  'Posição Y (quadro)
-  Oxigenio       as integer  'Oxigenio atual (diminui se estiver na água)
-  NoOxigenio     as integer  '0=Não 1=Usando garrafa de oxigênio
-  ItSuporte      as integer  'Quantos suportes possui
-  ItOxigenio     as integer  'Quantas garrafas de oxigênio possui
-  ItPicareta     as integer  'Quantas picaretas possui
-  ItFuradeira    as integer  'Quantas furadeiras possui
-  ItBombinha     as integer  'Quantas bombas pequenas possui
-  ItBombona      as integer  'Quantas bombas grandes possui
-  NaPicareta     as integer  'Se está usando a picareta (0=não 1~=passo)
-  NaFuradeira    as integer  'Se está usando a furadeira (id. acima)
-  DirFuradeira   as integer  'Para que lado está furando (1=direita 2=esquerda)
-  VirouFuradeira as integer  '0=Não virou, ainda pode virar; 1=já virou, não pode mais
-  Tempo          as long     'Marca o tempo (em segundos)
-  Nome           as string   'Nome do jogador
-end type
-
-'Mina
-type TMina
-  Numero   as integer
-  Tipo     as ubyte    '0=Normal  1=Personalizada
-  Larg     as ubyte    'Largura (Tela=25)
-  ALT      as ubyte    'Altura (Tela=17)
-  Tesouros as integer  'Quantidade de tesouros a recolher para completar a mina
-  X        as integer  'Posição X inicial do boneco
-  Y        as integer  'Posição Y inicial do boneco
-  Noturno  as ubyte    'Se a mina é noturna ou não
-  Tempo    as ulong    'Tempo para concluir a mina
-  Alterada as integer  'Se foi feita alteraçao depois de ler ou de gravar pela ultima vez
-end type
-
-'Explosões
-type TExplosao
-  X         as integer   'X do quadro da explosão
-  Y         as integer   'Y do quadro da explosão
-  Tipo      as integer   '0=não está em uso; 1=pequena (3 quadros); 2=grande (9 quadros)
-  Tempo     as integer   '0=não está em uso; 1~=passos
-end type
-
-'Editor
-type EdTipo
-  Tp      as integer  '0=fundo 1=obj 2=frente
-  Cod     as integer  'Código do fundo, objeto ou frente
-end type
-
-'Comportamentos dos diferentes objetos (12 diferentes)
-type TComportamento
-  Vazio     as byte     '0=não vazio; 1=vazio (vão livre para andar e empurrar)
-  Sobe      as byte     '0=não sobe; 1=sobe
-  Apoia     as byte     '0=não apóia; 1=apoia
-  Anda      as byte     '0=Não anda; 1=Anda e some ou pega; 2=Anda e permanece
-  Mata      as byte     '0=não mata; 1=mata
-  PEmpurra  as integer  '0=empurra inúmeros; 1=empurra 2; 2=empurra 1; 3=não empurra
-  Cai       as byte     '0=não cai; 1=cai
-  Destroi   as byte     '0=não destrói 1=só com explosão 2=explosão, furadeira ou picareta
-  Som       as byte     '0=Vazio 1=Terra 2=Tijolo/Escada/Pedra 3=Diamante/Carrinho/Item 4=Caixa/Feno (5=boneco)
-end type
-
-'Objetos (81 diferentes)
-type TiposObj
-  Tipo as integer    'Índice do tipo de comportamento
-  Img  as integer    'Número da imagem
-  Item as integer    'Numero do item
-end type
-
-'Mensagens na tela
-type TMsgPT
-  Ciclo  as integer '0=Acabou
-  Pontos as integer
-  X as integer
-  Y as integer
-end type
-
-'Tiles
-type TObj
-  Tp         as ubyte    'Indicador do tipo de objeto
-  Caindo     as byte     '0=não; 1=sim
-  AntCaindo  as byte     'Se já estava caindo anteriormente
-  Empurrando as byte     '0=não; 1=direita; 2=esquerda
-  Passo      as long     'Número do passo no movimento
-end type
-
-'Top Score
-type Recorde
-  Nome   as string    'Nome
-  Pontos as uinteger  'Pontuação
-end type
-
-declare sub EscreveNumero (byval Numero as long, Comprimento as integer, X1 as integer, Y1 as integer, PReenche as integer)
-declare sub Escreve (byval Texto as string, x1 as integer, y1 as integer, Bold as integer = 0, BoldV as integer = 0)
-declare sub EscreveCentro (byval Texto as string, x1 as integer, Bold as integer = 0, BoldV as integer = 0)
-declare sub EscrevePT (Pontos as  integer, X as integer, Y as integer, CJCarac as integer)
-declare function LargTexto (byval Texto as string, Bold as integer = 0) as integer
+declare sub EscreveNumero(byval Numero as long, Comprimento as integer, X1 as integer, Y1 as integer, PReenche as integer)
+declare sub Escreve(byval Texto as string, x1 as integer, y1 as integer, Bold as integer = 0, BoldV as integer = 0)
+declare sub EscreveCentro(byval Texto as string, x1 as integer, Bold as integer = 0, BoldV as integer = 0)
+declare sub EscrevePT(Pontos as  integer, X as integer, Y as integer, CJCarac as integer)
+declare function LargTexto(byval Texto as string, Bold as integer = 0) as integer
 declare sub IniciaJogo
 declare sub IniciaVida
-declare sub LeMinaIn (NMina as integer, SoQuant as integer = 0)
-declare sub LeMinaOUT (NMina as integer, Editando as integer = 0)
-declare sub LeMinaDet (Editando as integer = 0)
+declare sub LeMinaIn(NMina as integer, SoQuant as integer = 0)
+declare sub LeMinaOUT(NMina as integer, Editando as integer = 0)
+declare sub LeMinaDet(Editando as integer = 0)
 declare sub LeMinasPers
 declare sub Desenha
 declare sub Joga
-declare sub PegaObj (POX as integer, POY as integer)
-declare function EmpurraObj (byval POX as integer, byval POY as integer, byval MDir as integer, byval Peso as integer, byval Quant as integer) as integer
-declare sub Explode (byval EXX as integer, byval EXY as integer, byval XTam as integer)
+declare sub PegaObj(POX as integer, POY as integer)
+declare function EmpurraObj(byval POX as integer, byval POY as integer, byval MDir as integer, byval Peso as integer, byval Quant as integer) as integer
+declare sub Explode(byval EXX as integer, byval EXY as integer, byval XTam as integer)
 declare sub LimpaMina
 declare function VerificaRecorde as integer
 declare sub LeTopDez
 declare sub TrocaTelas
 declare sub MontaTopDez
 declare sub LimpaTopDez
-declare sub Mensagem (QCor as integer, Tipo as integer, T1 as string, T2 as string, T3 as string, OX as integer = 400, OY as integer= 300, Opcao as integer = 0)
-declare sub DesBox (H as integer, V as integer, QCor as integer, OX as integer = 400, OY as integer = 300)
-declare sub PutLogo (LX as integer, LY as integer)
-declare sub SorteiaNotaGameOver
-declare sub SorteiaNotaVenceu
-declare sub MarcaPt (Pontos as integer, X as integer, Y as integer)
+declare sub Mensagem(QCor as integer, Tipo as integer, T1 as string, T2 as string, T3 as string, OX as integer = 400, OY as integer= 300, Opcao as integer = 0)
+declare sub DesBox(H as integer, V as integer, QCor as integer, OX as integer = 400, OY as integer = 300)
+declare sub PutLogo(LX as integer, LY as integer)
+declare sub GenerateAndPlaySoundGameOver
+declare sub GenerateAndPlaySoundGameWon
+declare sub MarcaPt(Pontos as integer, X as integer, Y as integer)
 declare function CTRX as integer
 declare function CTRY as integer
-declare function ProximaTeclaDemo () as string
-declare sub LoadBar (perc as integer)
+declare function ProximaTeclaDemo() as string
+declare sub LoadBar(perc as integer)
 declare sub RegravaConfig
-declare function LeTXT (Idioma as string) as integer
-declare sub ProcIdiomas ()
+declare function LeTXT(Idioma as string) as integer
+declare sub ProcIdiomas()
 declare sub DesFundo
-declare sub VeSeGanhaVida (Acrescimo as integer)
+declare sub VeSeGanhaVida(Acrescimo as integer)
 declare sub CalculaBonusTempo
 declare sub LeMouse
-declare sub MudaStatus (NovoStatus as integer)
-'declare sub DesligaSons
-declare sub LimpaTeclado (IncLMTec as integer = 0)
-
+declare sub MudaStatus(NovoStatus as integer)
+declare sub LimpaTeclado(IncLMTec as integer = 0)
 'Editor:
 declare sub Edita
-declare sub EscreveNumeroPeq (byval Numero as integer, X1 as integer, Y1 as integer)
-declare sub SalvaMina (ParaTestar as integer = 0)
-declare sub Dlinha (x1 as integer, y1 as integer, x2 as integer, y2 as integer, QualCor as integer)
+declare sub EscreveNumeroPeq(byval Numero as integer, X1 as integer, Y1 as integer)
+declare sub SalvaMina(ParaTestar as integer = 0)
+declare sub Dlinha(x1 as integer, y1 as integer, x2 as integer, y2 as integer, QualCor as integer)
 declare sub CopiaMMinEd
 declare sub CopiaMEdMin
 declare sub EncerraTeste
-declare sub DesenhaItem (ITX as integer, ITY as integer, ITN as integer)
+declare sub DesenhaItem(ITX as integer, ITY as integer, ITN as integer)
 declare function MaiorColuna as integer
 declare function MaiorLinha as integer
 declare function ContaTesouros as integer
-declare function PosMouseEd () as integer
+declare function PosMouseEd() as integer
 declare sub FazRedo
 declare sub FazUndo
 declare sub LimpaMinaEditor
-declare function PergFecha () as integer
+declare function PergFecha() as integer
 declare sub SwapEDXY
 declare sub GravaUndo
 declare function PerguntaSeEncerraTeste() as integer
@@ -288,11 +102,11 @@ declare function PerguntaSeEncerraTeste() as integer
 'Variáveis compartilhadas
 'Armazenamento das Imagens
 dim shared Carregou as integer
-dim shared as any ptr Grafx, GrafX2, BMP (281)
+dim shared as any ptr Grafx, GrafX2, GBitmaps(281)
 'Mensagens de pontos na tela
-dim shared as TMsgPT MSG (20)
+dim shared as TMsgPT MSG(20)
 'Recordes
-dim shared TopPt (10) as Recorde
+dim shared TopPt(10) as Recorde
 dim shared as integer ConfirmDel
 'Menu
 dim shared as integer OpMenu, XM, YM, Mina1, Mina2, PosTop10, Opcao1
@@ -302,11 +116,11 @@ dim shared as string Tecla, UltTecla
 dim shared as uinteger CorRGB, CorRGB2
 'Fonte
 dim shared as string Lt_, XTemp
-dim shared as integer PosLetra (100, 1)
+dim shared as integer PosLetra(100, 1)
 'Screen
 dim shared ScrAtiva as integer
 'Idiomas
-dim shared as string Idioma (15), IAtual
+dim shared as string Idioma(15), IAtual
 dim shared as integer IQuant, NAtual
 'Timer
 dim shared as uinteger ATimer, NTimer
@@ -317,25 +131,25 @@ dim shared as double TIMESTART
 dim shared Jogo as TJogo
 dim shared Boneco as TBoneco
 dim shared as TMina Mina
-dim shared PontoTesouro (7 to 22) as integer
+dim shared PontoTesouro(7 to 22) as integer
 dim shared as integer TmpSleep, PtBonus, Quadros, ultQuadros
 dim shared as double timer1, Timer2
 'Explosões
-dim shared Explosao (10) as TExplosao
+dim shared Explosao(10) as TExplosao
 'Comportamentos de objetos
-dim shared Comport (13) as TComportamento
+dim shared Comport(13) as TComportamento
 'Tipos de objetos
-dim shared TpObjeto (84) as TiposObj
+dim shared TpObjeto(84) as TiposObj
 'Tiles: fundo - layer 0 (0 = água)
-dim shared as ubyte Fundo (-1 to 100, -1 to 60)
+dim shared as ubyte Fundo(-1 to 100, -1 to 60)
 'Tiles: objetos - layer 1
-dim shared as TObj Objeto (-1 to 100, -1 to 60)
+dim shared as TObj Objeto(-1 to 100, -1 to 60)
 'Tiles: frente - layer 2
-dim shared as ubyte Frente (-1 to 100, -1 to 60)
+dim shared as ubyte Frente(-1 to 100, -1 to 60)
 'Imagens do boneco
-dim shared Parado (5) as integer
-dim shared Movendo (7,3) as integer
-dim shared Usando (2,1) as integer
+dim shared Parado(5) as integer
+dim shared Movendo(7,3) as integer
+dim shared Usando(2,1) as integer
 'Tela inicial
 dim shared as integer CRed, CGreen, CBlue, VRed, VGreen, VBlue, CRed2, CGreen2, CBlue2
 'Modo Demonstração
@@ -343,9 +157,9 @@ dim shared as string TeclasDemo
 dim shared as integer PositDemo, DemoW1, DemoW2, DemoCiclo, MensDemo, TempMens
 dim shared as double TTDemo1, TTDemo2
 'Minas personalizadas
-dim shared as integer MinaPers (999), SelPers (999), QuantPers, PersTemp
+dim shared as integer MinaPers(999), SelPers(999), QuantPers, PersTemp
 'Textos (todos)
-dim shared as string TXT (159)
+dim shared as string TXT(159)
 'Mouse:
 dim shared as integer MouseX, MouseY, MouseB, MouseXAnt, MouseYAnt, MouseBAnt, MouseDisparou, MouseLiberou, MouseSimNao, MouseMoveu, MouseSobre, MouseW, MouseWAnt, MouseWDir
 'Editor:
@@ -354,114 +168,95 @@ dim shared as string LMTec, UMTec
 dim shared as integer EdX1, EdX2, EdY1, EdY2, EdMOn, EdShow, PrimeiroItem, ItemSel
 dim shared as integer EDXX1, EDXX2, EDYY1, EDYY2, EdGrid, PosMouse
 'Undo:
-dim shared as integer MatrizAtual, MatrizRedoLimite, MatrizUndoLimite, EdMovendoUndo, BonecoX (MaxUndo), BonecoY (MaxUndo)
-dim shared as ubyte UndoFundo (MaxUndo, -1 to 100, -1 to 60), UndoFrente (MaxUndo, -1 to 100, -1 to 60), UndoObjeto (MaxUndo, -1 to 100, -1 to 60)
+dim shared as integer MatrizAtual, MatrizRedoLimite, MatrizUndoLimite, EdMovendoUndo, BonecoX(MaxUndo), BonecoY(MaxUndo)
+dim shared as ubyte UndoFundo(MaxUndo, -1 to 100, -1 to 60), UndoFrente(MaxUndo, -1 to 100, -1 to 60), UndoObjeto(MaxUndo, -1 to 100, -1 to 60)
 'Fonte
 Lt_ = "ABCDEFGHIJKLMNOPQRSTUVWXYZÇÁÉÍÓÚÂÊÔÃÕÀabcdefghijklmnopqrstuvwxyzçáéíóúâêôãõà.,:?!0123456789-+'/()=_>|"
-'*FT* Lt = " 0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZÇÁÉÍÓÚÂÊÔÃÕÀabcdefghijklmnopqrstuvwxyzçáéíóúâêôãõà-_=+(*)&%$#@!?,.<>;:|"
 
-'Vairáveis locais
-dim as integer F, G, H, I
-
-'Inicializa a tela
-windowtitle "FreeBasic Miner"
-screen 19, 32, 2  '800x600, Cores de 32 bits, 2 páginas
+windowtitle "FreeBASIC Miner"
+screen 19, 32, 2
 CRed = 0
 randomize
-VRed = int(rnd*2)
-VGreen = int(rnd*2)
-VBlue = int(rnd*2)
+VRed = int(rnd * 2)
+VGreen = int(rnd * 2)
+VBlue = int(rnd * 2)
 DesFundo
 CRed = 0
 
-draw string (25,500), "Carregando FreeBasic Miner..."
-line (20,520) - (779,554), rgb(200,200,200), bf
-line (21,519) - (778,555), rgb(200,200,200), b
-line (23,523) - (776,551), rgb(16,16,48),bf
-
+draw string (25, 500), "Carregando FreeBASIC Miner..."
+line (20, 520) - (779, 554), rgb(200, 200, 200), bf
+line (21, 519) - (778, 555), rgb(200, 200, 200), b
+line (23, 523) - (776, 551), rgb(16, 16, 48), bf
 LoadBar 5
-Idioma (0) = DefaultLanguage
-DEBUG_LOG_REWRITE("Application start")
-
+Idioma(0) = DefaultLanguage
+DEBUG_LOG_REWRITE(CAppInfo)
 sleep 2, 1
 
 'Definição das imagens do boneco
 'Parado (depende do último movimento)
-Parado (0) = 116
-Parado (1) = 119
-Parado (2) = 122
-Parado (3) = 117
-Parado (4) = 117
-Parado (5) = 116
-
+Parado(0) = 116
+Parado(1) = 119
+Parado(2) = 122
+Parado(3) = 117
+Parado(4) = 117
+Parado(5) = 116
 'Andando p/ direita
-Movendo (0, 0) = 119
-Movendo (0, 1) = 118
-Movendo (0, 2) = 120
-Movendo (0, 3) = 118
-
+Movendo(0, 0) = 119
+Movendo(0, 1) = 118
+Movendo(0, 2) = 120
+Movendo(0, 3) = 118
 'Andando p/ esquerda
-Movendo (1, 0) = 122
-Movendo (1, 1) = 121
-Movendo (1, 2) = 123
-Movendo (1, 3) = 121
-
+Movendo(1, 0) = 122
+Movendo(1, 1) = 121
+Movendo(1, 2) = 123
+Movendo(1, 3) = 121
 'Subindo
-Movendo (2, 0) = 124
-Movendo (2, 1) = 117
-Movendo (2, 2) = 125
-Movendo (2, 3) = 117
-
+Movendo(2, 0) = 124
+Movendo(2, 1) = 117
+Movendo(2, 2) = 125
+Movendo(2, 3) = 117
 'Descendo
-Movendo (3, 0) = 124
-Movendo (3, 1) = 117
-Movendo (3, 2) = 125
-Movendo (3, 3) = 117
-
+Movendo(3, 0) = 124
+Movendo(3, 1) = 117
+Movendo(3, 2) = 125
+Movendo(3, 3) = 117
 'Caindo
-Movendo (4, 0) = 126
-Movendo (4, 1) = 126
-Movendo (4, 2) = 126
-Movendo (4, 3) = 126
-
+Movendo(4, 0) = 126
+Movendo(4, 1) = 126
+Movendo(4, 2) = 126
+Movendo(4, 3) = 126
 'Empurrando p/ direita
-Movendo (5, 0) = 128
-Movendo (5, 1) = 127
-Movendo (5, 2) = 129
-Movendo (5, 3) = 127
-
+Movendo(5, 0) = 128
+Movendo(5, 1) = 127
+Movendo(5, 2) = 129
+Movendo(5, 3) = 127
 'Empurrando para esquerda
-Movendo (6, 0) = 131
-Movendo (6, 1) = 130
-Movendo (6, 2) = 132
-Movendo (6, 3) = 130
-
+Movendo(6, 0) = 131
+Movendo(6, 1) = 130
+Movendo(6, 2) = 132
+Movendo(6, 3) = 130
 'Morrendo
-Movendo (7, 0) = 116
-Movendo (7, 1) = 119
-Movendo (7, 2) = 117
-Movendo (7, 3) = 122
-
+Movendo(7, 0) = 116
+Movendo(7, 1) = 119
+Movendo(7, 2) = 117
+Movendo(7, 3) = 122
 'Usando a picareta
-Usando (0, 0) = 133
-Usando (0, 1) = 134
-
+Usando(0, 0) = 133
+Usando(0, 1) = 134
 'Usando a furadeira p/ direita
-Usando (1, 0) = 135
-Usando (1, 1) = 136
-
+Usando(1, 0) = 135
+Usando(1, 1) = 136
 'Usando a furadeira p/ esquerda
-Usando (2, 0) = 137
-Usando (2, 1) = 138
+Usando(2, 0) = 137
+Usando(2, 1) = 138
 
 LoadBar 10
 sleep 2, 1
 
 'Definição dos comportamentos
-'--------------------------------------------------
 
 'Vazio (inclui água)
-with Comport (0)
+with Comport(0)
   .Vazio = 1
   .Sobe = 0
   .Apoia = 0
@@ -474,7 +269,7 @@ with Comport (0)
 end with
 
 'Terra (pode ser eliminada)
-with Comport (1)
+with Comport(1)
   .Vazio = 0
   .Sobe = 0
   .Apoia = 1
@@ -487,7 +282,7 @@ with Comport (1)
 end with
 
 'Parede destrutível
-with Comport (2)
+with Comport(2)
   .Vazio = 0
   .Sobe = 0
   .Apoia = 1
@@ -500,7 +295,7 @@ with Comport (2)
 end with
 
 'Parede indestrutível
-with Comport (3)
+with Comport(3)
   .Vazio = 0
   .Sobe = 0
   .Apoia = 1
@@ -513,7 +308,7 @@ with Comport (3)
 end with
 
 'Escada
-with Comport (4)
+with Comport(4)
   .Vazio = 0
   .Sobe = 1
   .Apoia = 1
@@ -526,7 +321,7 @@ with Comport (4)
 end with
 
 'Diamante
-with Comport (5)
+with Comport(5)
   .Vazio = 0
   .Sobe = 0
   .Apoia = 1
@@ -539,7 +334,7 @@ with Comport (5)
 end with
 
 'Pedra
-with Comport (6)
+with Comport(6)
   .Vazio = 0
   .Sobe = 0
   .Apoia = 1
@@ -552,7 +347,7 @@ with Comport (6)
 end with
 
 'Carrinho
-with Comport (7)
+with Comport(7)
   .Vazio = 0
   .Sobe = 0
   .Apoia = 1
@@ -565,7 +360,7 @@ with Comport (7)
 end with
 
 'Caixa
-with Comport (8)
+with Comport(8)
   .Vazio = 0
   .Sobe = 0
   .Apoia = 1
@@ -578,7 +373,7 @@ with Comport (8)
 end with
 
 'Feno
-with Comport (9)
+with Comport(9)
   .Vazio = 0
   .Sobe = 0
   .Apoia = 1
@@ -591,7 +386,7 @@ with Comport (9)
 end with
 
 'Item
-with Comport (10)
+with Comport(10)
   .Vazio = 0
   .Sobe = 0
   .Apoia = 1
@@ -604,7 +399,7 @@ with Comport (10)
 end with
 
 'Bomba acionada
-with Comport (11)
+with Comport(11)
   .Vazio = 0
   .Sobe = 0
   .Apoia = 1
@@ -617,7 +412,7 @@ with Comport (11)
 end with
 
 'Suporte em uso
-with Comport (12)
+with Comport(12)
   .Vazio = 0
   .Sobe = 0
   .Apoia = 1
@@ -630,7 +425,7 @@ with Comport (12)
 end with
 
 'Espetos
-with Comport (13)
+with Comport(13)
   .Vazio = 0
   .Sobe = 0
   .Apoia = 1
@@ -648,15 +443,17 @@ sleep 2, 1
 'Definição dos tipos de objetos:
 
 'Vazio (0):
-with TpObjeto (0)
+with TpObjeto(0)
   .Tipo = 0
   .Img  = 0
   .Item = 0
 end with
 
+dim as integer f, g, h, i
+
 'Terras (1-14):
 for f = 0 to 13
-  with TpObjeto (f + 1)
+  with TpObjeto(f + 1)
     .Tipo = 1
     .Img  = f + 36
     .Item = 0
@@ -665,7 +462,7 @@ next
 
 'Paredes destrutíveis (15-25):
 for f = 0 to 10
-  with TpObjeto (f + 15)
+  with TpObjeto(f + 15)
     .Tipo = 2
     .Img  = f + 50
     .Item = 0
@@ -674,7 +471,7 @@ next
 
 'Paredes indestrutíveis (26-37):
 for f = 0 to 11
-  with TpObjeto (f + 26)
+  with TpObjeto(f + 26)
     .Tipo = 3
     .Img  = f + 61
     .Item = 0
@@ -683,7 +480,7 @@ next
 
 'Escadas (38-39):
 for f = 0 to 1
-  with TpObjeto (f + 38)
+  with TpObjeto(f + 38)
     .Tipo = 4
     .Img  = f + 73
     .Item = 0
@@ -692,7 +489,7 @@ next
 
 'Diamantes (40-55):
 for f = 0 to 15
-  with TpObjeto (f + 40)
+  with TpObjeto(f + 40)
     .Tipo = 5
     .Img  = f + 75
     .Item = f + 7
@@ -701,7 +498,7 @@ next
 
 'Pedras (56-63):
 for f = 0 to 7
-  with TpObjeto (f + 56)
+  with TpObjeto(f + 56)
     .Tipo = 6
     .Img  = f + 91
     .Item = 0
@@ -710,7 +507,7 @@ next
 
 'Carrinhos (64-66):
 for f = 0 to 2
-  with TpObjeto (f + 64)
+  with TpObjeto(f + 64)
     .Tipo = 7
     .Img  = f + 99
     .Item = 0
@@ -719,7 +516,7 @@ next
 
 'Caixas (67-68):
 for f = 0 to 1
-  with TpObjeto (f + 67)
+  with TpObjeto(f + 67)
     .Tipo = 8
     .Img  = f + 102
     .Item = 0
@@ -728,7 +525,7 @@ next
 
 'Feno (69-70):
 for f = 0 to 1
-  with TpObjeto (f + 69)
+  with TpObjeto(f + 69)
     .Tipo = 9
     .Img  = f + 104
     .Item = 0
@@ -737,7 +534,7 @@ next
 
 'Itens para pegar (71-76):
 for f = 0 to 5
-  with TpObjeto (f + 71)
+  with TpObjeto(f + 71)
     .Tipo = 10
     .Img  = f + 106
     .Item = f + 1
@@ -746,7 +543,7 @@ next
 
 'Bombas em Uso (77-78: Pequena; 79-80: Grande):
 for f = 0 to 3
-  with TpObjeto (f + 77)
+  with TpObjeto(f + 77)
     .Tipo = 11
     .Img  = f + 112
     .Item = 0
@@ -754,7 +551,7 @@ for f = 0 to 3
 next
 
 'Suporte em Uso (81):
-with TpObjeto (81)
+with TpObjeto(81)
   .Tipo = 12
   .Img  = 236
   .Item = 0
@@ -773,116 +570,107 @@ LoadBar 20
 sleep 2, 1
 
 'Pontos por tesouro
-PontoTesouro (7)  = 1
-PontoTesouro (8)  = 2
-PontoTesouro (9)  = 3
-PontoTesouro (10) = 4
-PontoTesouro (11) = 5
-PontoTesouro (12) = 6
-PontoTesouro (13) = 7
-PontoTesouro (14) = 8
-PontoTesouro (15) = 9
-PontoTesouro (16) = 10
-PontoTesouro (17) = 12
-PontoTesouro (18) = 15
-PontoTesouro (19) = 17
-PontoTesouro (20) = 20
-PontoTesouro (21) = 25
-PontoTesouro (22) = 30
+PontoTesouro(7)  = 1
+PontoTesouro(8)  = 2
+PontoTesouro(9)  = 3
+PontoTesouro(10) = 4
+PontoTesouro(11) = 5
+PontoTesouro(12) = 6
+PontoTesouro(13) = 7
+PontoTesouro(14) = 8
+PontoTesouro(15) = 9
+PontoTesouro(16) = 10
+PontoTesouro(17) = 12
+PontoTesouro(18) = 15
+PontoTesouro(19) = 17
+PontoTesouro(20) = 20
+PontoTesouro(21) = 25
+PontoTesouro(22) = 30
 
-'Inicializa MIDI
-if not InitSound then
+if not InitSoundSystem then
   cls
-  draw string (10, 20), TXT (1)
-  draw string (10, 50), TXT (50)
+  draw string (10, 20), TXT(1)
+  draw string (10, 50), TXT(50)
   LimpaTeclado
   end 1
 end if
 
 LoadBar 25
 sleep 2, 1
-'Prepara imagens
-Grafx = imagecreate (800, 440, 0, 32)
+
+Grafx = imagecreate(800, 440, 0, 32)
 sleep 10, 1
-BMP (275) = imagecreate (448, 444, rgba (0, 0, 0, 255), 32)
+GBitmaps(275) = imagecreate(448, 444, rgba(0, 0, 0, 255), 32)
 for f = 0 to 79
-  circle BMP (275), (222, 222), 144 - f, rgba (0, 0, 0, 255 - f * 3.17), , , , f
+  circle GBitmaps(275), (222, 222), 144 - f, rgba(0, 0, 0, 255 - f * 3.17),,,, f
 next
-circle BMP (275), (222, 222), 64, rgba (0, 0, 0, 0), , , , f
-Carregou = bload ("res/sprites.bmp", Grafx)
-LoadBar 27
+circle GBitmaps(275), (222, 222), 64, rgba(0, 0, 0, 0),,,, f
+Carregou = bload("res/Sprites.bmp", Grafx)
 
 'Posições das figuras no arquivo de imagem
 '0-184 = fundos, frentes, objetos, bonecos...
 for f = 0 to 184
-  BMP (f) = imagecreate (32, 32, 0, 32)
-  put BMP (f), (0,0), GrafX, ((f mod 25) * 32, int (f/25) * 32) - step (31, 31), pset
+  GBitmaps(f) = imagecreate(32, 32, 0, 32)
+  put GBitmaps(f), (0,0), GrafX, ((f mod 25) * 32, int(f / 25) * 32) - step(31, 31), pset
 next
-
 LoadBar 30
 
 '185-196 = Explosoes
 for f = 0 to 11
-  BMP (185 + f) = imagecreate (32, 32, 0, 32)
-
+  GBitmaps(185 + f) = imagecreate(32, 32, 0, 32)
   'transparência gradativa
   for G = 0 to 31
     for H = 0 to 31
-      CorRGB = point (320 + F * 32 + G, 224 + H, GrafX)
+      CorRGB = point(320 + F * 32 + G, 224 + H, GrafX)
       if CorRGB = Magenta then
-        pset BMP(185 + F), (G, H), rgba (255, 0, 255, 0)
+        pset GBitmaps(185 + F), (G, H), rgba(255, 0, 255, 0)
       else
-        pset BMP(185 + F), (G, H), rgba (rgba_R(CorRGB), rgba_G(CorRGB), rgba_B(CorRGB), 255 - f * 21)
+        pset GBitmaps(185 + F), (G, H), rgba(rgba_R(CorRGB), rgba_G(CorRGB), rgba_B(CorRGB), 255 - f * 21)
       end if
     next
   next
 next
 
-LoadBar 33
-
 '197 - 208 = Algarismos (fundo opaco)
 for f = 0 to 11
-  BMP (197 + f) = imagecreate (10, 15, 0, 32)
-  put BMP (197 + f), (0,0), GrafX, (f * 10 + 672, 256) - step (9, 14), pset
+  GBitmaps(197 + f) = imagecreate(10, 15, 0, 32)
+  put GBitmaps(197 + f), (0,0), GrafX, (f * 10 + 672, 256) - step(9, 14), pset
 next
 
 LoadBar 35
 
 '209 = Medidor do oxigênio
-BMP (209) = imagecreate (100, 16, 0, 32)
-put BMP (209), (0,0), GrafX, (672, 272) - (771, 287), pset
-
+GBitmaps(209) = imagecreate(100, 16, 0, 32)
+put GBitmaps(209), (0,0), GrafX, (672, 272) - (771, 287), pset
 '210 = Barra de informações - (210)
-BMP (210) = imagecreate (800, 56, 0, 32)
-put BMP (210), (0,0), GrafX, (0, 352) - (799, 407), pset
-
+GBitmaps(210) = imagecreate(800, 56, 0, 32)
+put GBitmaps(210), (0,0), GrafX, (0, 352) - (799, 407), pset
 '211 = Logo do Jogo (211)
-BMP (211) = imagecreate (220, 96, 0, 32)
-put BMP (211), (0,0), GrafX, (0, 256) - (219, 351), pset
-
+GBitmaps(211) = imagecreate(220, 96, 0, 32)
+put GBitmaps(211), (0,0), GrafX, (0, 256) - (219, 351), pset
 '212 = Game over (212)
-BMP (212) = imagecreate (128, 64, 0, 32)
-put BMP (212), (0,0), GrafX, (672, 288) - (799, 351), pset
+GBitmaps(212) = imagecreate(128, 64, 0, 32)
+put GBitmaps(212), (0,0), GrafX, (672, 288) - (799, 351), pset
 
 '213 - 237 = Agua (213 a 237); espetos (233-235); suporte em uso (236); fundo para água (237)
 for f = 0 to 24
-  BMP (213 + f) = imagecreate (32, 32, 0, 32)
-  put BMP (213 + f), (0,0), GrafX, (F * 32, 408) - step (31, 31), pset
+  GBitmaps(213 + f) = imagecreate(32, 32, 0, 32)
+  put GBitmaps(213 + f), (0,0), GrafX, (F * 32, 408) - step(31, 31), pset
 next
 
 '238 = Setinhas: vermelha, laranja, amarela, verde e azul
-BMP (238) = imagecreate (58, 15, 0, 32)
-put BMP (238), (0, 0), Grafx, (7, 385) - (64, 399), pset
+GBitmaps(238) = imagecreate(58, 15, 0, 32)
+put GBitmaps(238), (0, 0), Grafx, (7, 385) - (64, 399), pset
 
 LoadBar 40
 
 '239 - 246 = Números (esmaecendo)
 for F = 0 to 7
-  BMP (239 + f) = imagecreate (90, 15, 0, 32)
+  GBitmaps(239 + f) = imagecreate(90, 15, 0, 32)
   for H = 0 to 89
     for I = 0 to 14
-      CorRGB = (point (288 + H, 320 + I, GrafX) and 255) * (1 - F * .1)
-      pset BMP (239 + f), (H, I), rgba (255, 255, 0, CorRGB)
+      CorRGB = (point(288 + H, 320 + I, GrafX) and 255) * (1 - F * .1)
+      pset GBitmaps(239 + f), (H, I), rgba(255, 255, 0, CorRGB)
     next
   next
 next
@@ -892,20 +680,20 @@ LoadBar 45
 '247 = Fonte (LETRAS)
 
 Grafx2 = imagecreate(LargArqFonte, 23, 0, 32)
-BMP (247)= imagecreate(LargArqFonte, 22, 0, 32)
-Carregou = bload ("res/fonte.bmp", Grafx2)
+GBitmaps(247)= imagecreate(LargArqFonte, 22, 0, 32)
+Carregou = bload("res/Font.bmp", Grafx2)
 
-h=0
-PosLetra (0,0) = 0
+h = 0
+PosLetra(0, 0) = 0
 for g = 0 to LargArqFonte - 1
   for f = 0 to 21
-    CorRGB = point (g, f, grafx2) and 255
-    pset BMP (247), (g, f), rgba (255, 255, 255, CorRGB)
+    CorRGB = point(g, f, grafx2) and 255
+    pset GBitmaps(247), (g, f), rgba(255, 255, 255, CorRGB)
   next
   if (point(g, 22, Grafx2) and 1) = 0 then
-    PosLetra (h, 1)= G
+    PosLetra(h, 1)= G
     h += 1
-    if g < LargArqFonte - 1 then PosLetra (h, 0) = g + 1
+    if g < LargArqFonte - 1 then PosLetra(h, 0) = g + 1
   end if
 next
 
@@ -913,14 +701,14 @@ LoadBar 50
 
 '248 - 251 = Quadros para mensagem
 for h = 0 to 3
-  BMP (248 + h) = imagecreate (64, 64, 0, 32)
+  GBitmaps(248 + h) = imagecreate(64, 64, 0, 32)
   for F = 0 to 63
     for G = 0 to 63
-      CorRGB = point (288 + h * 64 + F, 256 + G, GrafX)
+      CorRGB = point(288 + h * 64 + F, 256 + G, GrafX)
       if CorRGB = Magenta then
-        pset BMP (248 + h), (F, G), rgba (255, 0, 255, 0)
+        pset GBitmaps(248 + h), (F, G), rgba(255, 0, 255, 0)
       else
-        pset BMP (248 + h), (F, G), rgba (rgba_R(CorRGB), rgba_G(CorRGB), rgba_B(CorRGB), 192)
+        pset GBitmaps(248 + h), (F, G), rgba(rgba_R(CorRGB), rgba_G(CorRGB), rgba_B(CorRGB), 192)
       end if
     next
   next
@@ -929,21 +717,21 @@ next
 LoadBar 55
 
 '252 = FreeBasic's HORSE
-BMP (252) = imagecreate (59, 47, 0, 32)
-put BMP(252), (0, 0), grafx, (225,256) - (283,302), pset
+GBitmaps(252) = imagecreate(59, 47, 0, 32)
+put GBitmaps(252), (0, 0), grafx, (225,256) - (283,302), pset
 
 'Objetos de frente
 for H = 25 to 36
   for G = 0 to 31
     for F = 0 to 31
-      CorRGB = point (F, G, BMP (H))
+      CorRGB = point(F, G, GBitmaps(H))
       if CorRGB = Magenta then
-        pset BMP (H), (F, G), rgba (255, 0, 255, 0)
+        pset GBitmaps(H), (F, G), rgba(255, 0, 255, 0)
       else
         if H < 32 then
-          pset BMP (H), (F, G), rgba (rgba_R(CorRGB), rgba_G(CorRGB), rgba_B(CorRGB), 191)
+          pset GBitmaps(H), (F, G), rgba(rgba_R(CorRGB), rgba_G(CorRGB), rgba_B(CorRGB), 191)
         else
-          pset BMP (H), (F, G), rgba (rgba_R(CorRGB), rgba_G(CorRGB), rgba_B(CorRGB), 127)
+          pset GBitmaps(H), (F, G), rgba(rgba_R(CorRGB), rgba_G(CorRGB), rgba_B(CorRGB), 127)
         end if
       end if
     next
@@ -953,22 +741,22 @@ next
 LoadBar 60
 
 for h = 0 to 5
-  BMP (253 + h) = imagecreate (42, 48, 0, 32)
-  put BMP(253 + H), (0, 0), GrafX, (544 + (h mod 3) * 42, 256 + (int (h/3) * 48)) - step (41, 47), pset
+  GBitmaps(253 + h) = imagecreate(42, 48, 0, 32)
+  put GBitmaps(253 + H), (0, 0), GrafX, (544 + (h mod 3) * 42, 256 + (int(h/3) * 48)) - step(41, 47), pset
 next
 
 for F= 259 to 273
-  BMP (F) = imagecreate (32, 32, 0, 32)
+  GBitmaps(F) = imagecreate(32, 32, 0, 32)
 next
 
 LoadBar 65
 
 for f = 0 to 4
-  put BMP (264 + F), (0, 0), GrafX, (378 + F * 32, 320) - step (31, 31), pset
+  put GBitmaps(264 + F), (0, 0), GrafX, (378 + F * 32, 320) - step(31, 31), pset
   for g = 0 to 31
-    put BMP (269 + f), (g, 0), GrafX, (409 + F * 32 - G, 320) - step (0, 31), pset
+    put GBitmaps(269 + f), (g, 0), GrafX, (409 + F * 32 - G, 320) - step(0, 31), pset
     for h = 0 to 31
-      pset BMP (259 + F), (31 - H, G), point (378 + F * 32 + G, 320 + H, GrafX)
+      pset GBitmaps(259 + F), (31 - H, G), point(378 + F * 32 + G, 320 + H, GrafX)
     next
   next
 next
@@ -976,85 +764,82 @@ next
 LoadBar 70
 
 'Números pequenos para o editor
-BMP (274) = imagecreate (60, 8, 0, 32)
-put BMP (274), (0, 0), GrafX, (288, 335) - (347, 342), pset
+GBitmaps(274) = imagecreate(60, 8, 0, 32)
+put GBitmaps(274), (0, 0), GrafX, (288, 335) - (347, 342), pset
 
 imagedestroy GrafX
 
 LoadBar 75
 
 'Imagens do Menu
-BMP (276) = imagecreate (630, 128, 0, 32)
-GrafX = imagecreate (723, 128, 0, 32)
-Carregou = bload ("res/menu.bmp", GrafX)
-put BMP (276), (0,0), GrafX, (0, 0) - (629, 127), pset
-BMP (277) = imagecreate (96, 96, 0, 32)
+GBitmaps(276) = imagecreate(630, 128, 0, 32)
+GrafX = imagecreate(723, 128, 0, 32)
+Carregou = bload("res/Menu.bmp", GrafX)
+put GBitmaps(276), (0,0), GrafX, (0, 0) - (629, 127), pset
+GBitmaps(277) = imagecreate(96, 96, 0, 32)
 
 'Imagens do menu do editor
-BMP (278) = imagecreate (73, 19, rgba(255, 0, 255, 0), 32)
+GBitmaps(278) = imagecreate(73, 19, rgba(255, 0, 255, 0), 32)
 for f = 0 to 3
-  line bmp (278), (3 - f, f) - (69 +  f, 18 - f), rgba (0, 0, 0, 255), b
+  line GBitmaps(278), (3 - f, f) - (69 +  f, 18 - f), rgba(0, 0, 0, 255), b
 next
 
 LoadBar 80
 
-line bmp (278), (4, 4) - (68, 14), rgba (0, 0, 0, 64), Bf
-BMP (279) = imagecreate (611, 21, rgba (255, 0, 255, 0), 32)
-line bmp (279), (0,0) - (22, 20), rgb (128, 128, 128), b
-line bmp (279), (23,0) - (45, 20), rgb (128, 128, 128), b
-line bmp (279), (46,0) - (564, 20), rgb (128, 128, 128), b
-line bmp (279), (565,0) - (587, 20), rgb (128, 128, 128), b
-line bmp (279), (588,0) - (610, 20), rgb (128, 128, 128), b
-put bmp (279), (3, 2), GrafX, (688, 66) - (703, 82), pset
-put bmp (279), (30, 2), GrafX, (695, 66) - (703, 82), pset
-put bmp (279), (572, 2), GrafX, (677, 66) - (685, 82), pset
-put bmp (279), (592, 2), GrafX, (677, 66) - (692, 82), pset
-line bmp (279), (48, 4) - (562, 17), rgba (255, 255, 255, 255), B
-line bmp (279), (48, 4) - (561, 16), rgba (128, 128, 128, 255), B
-line bmp (279), (49, 5) - (52, 16), rgba (255, 255, 0, 255), BF
-line bmp (279), (53, 5) - (152, 16), rgba (80, 160, 160, 255), BF
-line bmp (279), (153, 5) - (208, 16), rgba (185, 106, 106, 255), BF
-line bmp (279), (209, 5) - (561, 16), rgba (100, 180, 100, 255), BF
+line GBitmaps(278), (4, 4) - (68, 14), rgba(0, 0, 0, 64), Bf
+GBitmaps(279) = imagecreate(611, 21, rgba(255, 0, 255, 0), 32)
+line GBitmaps(279), (0,0) - (22, 20), rgb(128, 128, 128), b
+line GBitmaps(279), (23,0) - (45, 20), rgb(128, 128, 128), b
+line GBitmaps(279), (46,0) - (564, 20), rgb(128, 128, 128), b
+line GBitmaps(279), (565,0) - (587, 20), rgb(128, 128, 128), b
+line GBitmaps(279), (588,0) - (610, 20), rgb(128, 128, 128), b
+put GBitmaps(279), (3, 2), GrafX, (688, 66) - (703, 82), pset
+put GBitmaps(279), (30, 2), GrafX, (695, 66) - (703, 82), pset
+put GBitmaps(279), (572, 2), GrafX, (677, 66) - (685, 82), pset
+put GBitmaps(279), (592, 2), GrafX, (677, 66) - (692, 82), pset
+line GBitmaps(279), (48, 4) - (562, 17), rgba(255, 255, 255, 255), B
+line GBitmaps(279), (48, 4) - (561, 16), rgba(128, 128, 128, 255), B
+line GBitmaps(279), (49, 5) - (52, 16), rgba(255, 255, 0, 255), BF
+line GBitmaps(279), (53, 5) - (152, 16), rgba(80, 160, 160, 255), BF
+line GBitmaps(279), (153, 5) - (208, 16), rgba(185, 106, 106, 255), BF
+line GBitmaps(279), (209, 5) - (561, 16), rgba(100, 180, 100, 255), BF
 
 LoadBar 85
 
-BMP (280) = imagecreate (187, 56, rgba (255, 0, 255, 0), 32)
+GBitmaps(280) = imagecreate (187, 56, rgba(255, 0, 255, 0), 32)
 for F = 0 to 1
   for g = 0 to 1
-    line bmp (280), (g * 27, F * 28) - step (26, 27), rgba (96, 96, 96, 255), B
-    put bmp (280), (2 + g * 27, 3 + F * 28), GrafX, (631 + G * 23, f * 23)- step (22, 22), pset
+    line GBitmaps(280), (g * 27, F * 28) - step (26, 27), rgba(96, 96, 96, 255), B
+    put GBitmaps(280), (2 + g * 27, 3 + F * 28), GrafX, (631 + G * 23, f * 23)- step (22, 22), pset
   next
   for g = 0 to 2
-    line bmp (280), (106 + g * 27, F * 28) - step (26, 27), rgba (96, 96, 96, 255), B
-    put bmp (280), (108 + g * 27, 3 + F * 28), GrafX, (631 + F * 23, 46 + G * 23)- step (22, 22), pset
+    line GBitmaps(280), (106 + g * 27, F * 28) - step (26, 27), rgba(96, 96, 96, 255), B
+    put GBitmaps(280), (108 + g * 27, 3 + F * 28), GrafX, (631 + F * 23, 46 + G * 23)- step (22, 22), pset
   next
 next
-line bmp (280), (54, 0) - step (51, 55), rgba (0, 0, 0, 255), B
-line bmp (280), (55, 0) - step (49, 55), rgba (128, 128, 128, 255), B
-put bmp (280), (57, 3), Grafx, (677, 0) - (722, 49), pset
-BMP (281) = imagecreate (46, 16, rgba (192, 192, 192, 255), 32)
-put bmp (281), (0, 0), grafX, (677, 50) - (722, 65), pset
+line GBitmaps(280), (54, 0) - step (51, 55), rgba(0, 0, 0, 255), B
+line GBitmaps(280), (55, 0) - step (49, 55), rgba(128, 128, 128, 255), B
+put GBitmaps(280), (57, 3), Grafx, (677, 0) - (722, 49), pset
+GBitmaps(281) = imagecreate (46, 16, rgba(192, 192, 192, 255), 32)
+put GBitmaps(281), (0, 0), grafX, (677, 50) - (722, 65), pset
 
 imagedestroy GrafX
 LoadBar 90
 
-'Hilight do menu
+'Highlight do menu
 sleep 10, 1
 for F=0 to 15
-  circle BMP (277), (f + 15, f + 15), 15, rgba(64, 255, 64, f * 16), , , , f
-  circle BMP (277), (f + 15, 80 - f), 15, rgba(64, 255, 64, f * 16), , , , f
-  circle BMP (277), (80 - f, f + 15), 15, rgba(64, 255, 64, f * 16), , , , f
-  circle BMP (277), (80 - f, 80 - f), 15, rgba(64, 255, 64, f * 16), , , , f
-  line BMP (277), (16 + f, f) - (79 - f, 95 - f), rgba(64, 255, 64, f * 16), bf
-  line BMP (277), (f , 16 + f) - (95 - f, 79 - f), rgba(64, 255, 64, f * 16), bf
+  circle GBitmaps(277), (f + 15, f + 15), 15, rgba(64, 255, 64, f * 16), , , , f
+  circle GBitmaps(277), (f + 15, 80 - f), 15, rgba(64, 255, 64, f * 16), , , , f
+  circle GBitmaps(277), (80 - f, f + 15), 15, rgba(64, 255, 64, f * 16), , , , f
+  circle GBitmaps(277), (80 - f, 80 - f), 15, rgba(64, 255, 64, f * 16), , , , f
+  line GBitmaps(277), (16 + f, f) - (79 - f, 95 - f), rgba(64, 255, 64, f * 16), bf
+  line GBitmaps(277), (f , 16 + f) - (95 - f, 79 - f), rgba(64, 255, 64, f * 16), bf
 next
 
 LoadBar 95
-
 LoadSounds
-
 LeMinaIn 0, 1
-
 LoadBar 100
 sleep 2, 1
 
@@ -1081,11 +866,9 @@ if Jogo.Volume < 0 or jogo.Volume > 127 then Jogo. Volume = 64
 Jogo.Passos = 8
 Jogo.DelayMSec = 33
 Jogo.TamanhoPasso = 4   'pixels
-
 'Le recordes
 LeTopDez
 ConfirmDel = 0
-
 'Inicia parâmetros
 IniciaJogo
 IniciaVida
@@ -1096,22 +879,18 @@ sleep 20, 1
 Quadros = 0
 UltQuadros = 0
 timer1 = Clock
-
 cls
-
 screenset 0, 1
 ScrAtiva=0
 
 'Chama o ciclo Principal
-
 Joga
-
 'Encerra o Programa
 
 'Libera canais de som e memória alocada para imagens
 FreeSound
-for f= 0 to 277
-  imagedestroy BMP (f)
+for f = 0 to 277
+  imagedestroy GBitmaps(f)
 next
 
 end
@@ -1133,7 +912,7 @@ end sub
 'Desenha a barra indicando a carga do programa
 
 sub LoadBar (perc as integer)
-  line (25,525) - (25 + perc * 7.51,549), rgb(127,127,255),bf
+  line (25, 525) - (25 + perc * 7.51, 549), rgb(127, 127, 255), bf
   sleep 2, 1
 end sub
 
@@ -1143,12 +922,10 @@ sub Desenha
   'Declaração de variáveis locais
   dim as integer XR, YR, X1, Y1, X1R, Y1R, BonecoR, Agua0, DF1, DF2, DG1, DG2, FigPt, F, G, H, I
   dim as integer TRX, TRY, TRXa, TRYa, Explodindo
-
   'Verifica se há explosão, para tremer a imagem
   for f=0 to 10
     if explosao(f).tipo > 0 and explosao(f).tempo < 10 then explodindo = 1
   next
-
   'Calcula que parte da tela deve ser mostrada
   if (Jogo.Status = ModoMapa) or (jogo.status = Top10) or (Jogo.Status = Editor) then
     TRX  = MapX
@@ -1238,9 +1015,9 @@ sub Desenha
   for f = df1 to df2
     for g = dg1 to dg2
       if fundo (TRX + f, TRY + g) > 0 then
-        put (TRXa + f * 32, TRYa + g * 32), BMP (fundo (TRX + f, TRY + g)),pset
+        put (TRXa + f * 32, TRYa + g * 32), GBitmaps(fundo (TRX + f, TRY + g)),pset
       else
-        put (TRXa + F * 32, TRYa + g * 32), BMP (237), pset
+        put (TRXa + F * 32, TRYa + g * 32), GBitmaps(237), pset
       end if
     next
   next
@@ -1263,7 +1040,7 @@ sub Desenha
           end select
         end if
         'Desenha o objeto na sua posição
-        put (TRXa + f * 32 + XR, TRYa + g * 32 + YR), BMP (TpObjeto (Objeto (TRX + F,TRY + G).tp).Img), trans
+        put (TRXa + f * 32 + XR, TRYa + g * 32 + YR), GBitmaps(TpObjeto (Objeto (TRX + F,TRY + G).tp).Img), trans
       next
     next
   end if
@@ -1280,14 +1057,14 @@ sub Desenha
       else
         if .NaPicareta > 0 then
           .Img = Usando(0, .NaPicareta mod 2) + BonecoR
-          put (TRXa + .ImgX - (TRX * 32), TRYa + .ImgY - (TRY * 32)+ 32), BMP (259 + int((.NaPicareta / Jogo.Passos) * 2.35)), trans
+          put (TRXa + .ImgX - (TRX * 32), TRYa + .ImgY - (TRY * 32)+ 32), GBitmaps(259 + int((.NaPicareta / Jogo.Passos) * 2.35)), trans
         'Furadeira
         elseif .NaFuradeira>0 then
           .img = Usando (.DirFuradeira, .NaFuradeira mod 2) + BonecoR
           if .DirFuradeira = 1 then
-            put (TRXa + .ImgX - (TRX * 32) + 32, TRYa + .ImgY - (TRY * 32)), BMP (264 + int((.NaFuradeira / Jogo.Passos) * 2.35)), trans
+            put (TRXa + .ImgX - (TRX * 32) + 32, TRYa + .ImgY - (TRY * 32)), GBitmaps(264 + int((.NaFuradeira / Jogo.Passos) * 2.35)), trans
           else
-            put (TRXa + .ImgX - (TRX * 32) - 32, TRYa + .ImgY - (TRY * 32)), BMP (269 + int((.NaFuradeira / Jogo.Passos) * 2.35)), trans
+            put (TRXa + .ImgX - (TRX * 32) - 32, TRYa + .ImgY - (TRY * 32)), GBitmaps(269 + int((.NaFuradeira / Jogo.Passos) * 2.35)), trans
           end if
         'Parado
         elseif .DirAtual = 0 then
@@ -1312,7 +1089,7 @@ sub Desenha
         end select
       end if
       'Desenha
-      put (TRXa + .ImgX - (TRX * 32), TRYa + .ImgY - (TRY * 32)), BMP (.Img), trans
+      put (TRXa + .ImgX - (TRX * 32), TRYa + .ImgY - (TRY * 32)), GBitmaps(.Img), trans
     end with
   end if
   'Desenha objetos da frente (layer 3, trans)
@@ -1320,7 +1097,7 @@ sub Desenha
     for f = df1 to df2
       for g = dg1 to dg2
         if frente (TRX + f,TRY + g) > 0 then
-          put (TRXa + f * 32, TRYa + g * 32), BMP (frente (TRX + f, TRY + g) + 24), alpha
+          put (TRXa + f * 32, TRYa + g * 32), GBitmaps(frente (TRX + f, TRY + g) + 24), alpha
         end if
       next
     next
@@ -1331,14 +1108,14 @@ sub Desenha
     for g = dg1 to dg2
       'Desenha, se o fundo for água (0)
       if fundo (TRX + f, TRY + g) = 0 then
-        put (TRXa + f * 32, TRYa + g * 32), BMP (213 + (Agua0 + F + g * 6) mod 20), alpha, 95
+        put (TRXa + f * 32, TRYa + g * 32), GBitmaps(213 + (Agua0 + F + g * 6) mod 20), alpha, 95
       end if
     next
   next
   'Desenha Lanterna (layer 5, Alpha variável)
   if Jogo.Status <> Editor then
     if mina.noturno = 1 then
-      put (TRXa + boneco.ImgX - (TRX * 32) - 208, TRYa + boneco.ImgY - (TRY * 32) - 208), BMP (275), (0, 0) - (443, 443), alpha
+      put (TRXa + boneco.ImgX - (TRX * 32) - 208, TRYa + boneco.ImgY - (TRY * 32) - 208), GBitmaps(275), (0, 0) - (443, 443), alpha
     end if
     'Desenha explosões (layer 6, trans)
     for f = 0 to 10
@@ -1346,7 +1123,7 @@ sub Desenha
         if .tipo > 0 then
           for G = (.Tipo = 2) to - (.Tipo = 2)
             for H = -1 to 1
-              put(TRXa + (.x - TRX + H) * 32, TRYa + (.y - TRY + G) * 32), BMP (185 + int(.tempo / 3)), alpha
+              put(TRXa + (.x - TRX + H) * 32, TRYa + (.y - TRY + G) * 32), GBitmaps(185 + int(.tempo / 3)), alpha
             next
           next
         else
@@ -1404,7 +1181,7 @@ sub Desenha
   end if
   if Jogo.Status <> Editor then
     'Desenha a barra inferior
-    put (0, 544), BMP (210), pset
+    put (0, 544), GBitmaps(210), pset
     with Boneco
       'Pontuação
       EscreveNumero .Pontos, 6, 7, 577, 0
@@ -1413,7 +1190,7 @@ sub Desenha
         EscreveNumero .Mina, 3, 96, 577, 0
       'end if
       'Oxigenio
-      put( 151, 576), BMP (209), (0, 0) - step (.Oxigenio, 15), pset
+      put( 151, 576), GBitmaps(209), (0, 0) - step (.Oxigenio, 15), pset
       'Qtde Itens Garrafa de Oxigenio
       EscreveNumero .ItOxigenio, 1, 296, 575, 0
       'Qtde Itens Suporte Pedra
@@ -1436,9 +1213,9 @@ sub Desenha
       EscreveNumero int(mina.Tempo/60), 2, 655,556, 1
       EscreveNumero Mina.Tempo mod 60, 2, 683,556, 1
       if mina.tempo - boneco.tempo >= 20 or Jogo.Status <> Jogando then
-        put (642, 578), BMP(238), (48, 0) - step (9, 14), trans
+        put (642, 578), GBitmaps(238), (48, 0) - step (9, 14), trans
       else
-        if (jogo.seqciclo mod 2 = 1) or (jogo.status = VenceuJogo) then put (642, 578), BMP (238), (int ((mina.tempo - boneco.tempo) / 5) * 12, 0) - step (9, 14), trans
+        if (jogo.seqciclo mod 2 = 1) or (jogo.status = VenceuJogo) then put (642, 578), GBitmaps(238), (int ((mina.tempo - boneco.tempo) / 5) * 12, 0) - step (9, 14), trans
       end if
     end if
     if jogo.seqciclo mod 2 = 1 and boneco.morreu = 0 and iniciado > 0 and jogo.status <> VenceuJogo then
@@ -1569,18 +1346,18 @@ sub Desenha
         line (774, 573) - (798, 598), &HFFFFFF, BF
       end select
       'se mouse estiver sobre qualquer área, fazer um hilight em amarelo ou verde
-      put (0, 544), bmp (279), trans
+      put (0, 544), GBitmaps(279), trans
       'calcula posiçao da barra e mostra:
-      put (46 + Primeiroitem * 4.48, 545), BMP (278), alpha
-      put (613, 544), BMP(280), trans
+      put (46 + Primeiroitem * 4.48, 545), GBitmaps(278), alpha
+      put (613, 544), GBitmaps(280), trans
       if ItemSel >= PrimeiroItem and ItemSel <= PrimeiroItem + 17 then
         line (int (ItemSel - PrimeiroItem) * 34 - 1, 565) - step (35, 34), &H40ff40, BF
       end if
       for f = 0 to 17
         DesenhaItem f * 34 + 1, 568, PrimeiroItem + F
       next
-      if EdShow = 0 or Edshow = 1 then put (670, 547), Bmp (281), trans
-      if EdShow = 0 or Edshow = 3 then put (670, 564), Bmp (281), trans
+      if EdShow = 0 or Edshow = 1 then put (670, 547), GBitmaps(281), trans
+      if EdShow = 0 or Edshow = 3 then put (670, 564), GBitmaps(281), trans
     case Selecionando
       DesBox 24, 1, 4, 400, 572
       EscreveCentro TXT(109), 562
@@ -1611,7 +1388,7 @@ sub EscrevePT (Pontos as  integer, X as integer, Y as integer, CJCarac as intege
   for f = 1 to len (StrNum)
     NumTxt = mid(StrNum, f, 1)
     NumVal = val (NumTxt)
-    put (x1 + f * 12 - 12, Y), BMP (239 + CJCarac), (NumVal * 9, 0) - step (8,14), alpha
+    put (x1 + f * 12 - 12, Y), GBitmaps(239 + CJCarac), (NumVal * 9, 0) - step (8,14), alpha
   next
 end sub
 
@@ -1637,7 +1414,7 @@ sub EscreveNumero (byval Numero as long, Comprimento as  integer, X1 as integer,
     else
       NumVal=val(NumTxt)+1
     end if
-    put (x1+f*12-12, Y1), BMP (197 + NumVal), pset
+    put (x1+f*12-12, Y1), GBitmaps(197 + NumVal), pset
   next
 end sub
 
@@ -1652,7 +1429,7 @@ sub Escreve (byval Texto as string, x1 as integer, y1 as integer, Bold as intege
     else
       for LV = 0 to BoldV
         for LG = 0 to Bold
-          put(X1 + LG, Y1 + LV), BMP (247), (PosLetra (PosL, 0), 0) - (PosLetra (PosL, 1), 21), alpha
+          put(X1 + LG, Y1 + LV), GBitmaps(247), (PosLetra (PosL, 0), 0) - (PosLetra (PosL, 1), 21), alpha
         next
       next
       x1 += PosLetra (PosL, 1) - PosLetra (PosL, 0) + Bold + 2
@@ -1740,10 +1517,8 @@ sub IniciaVida
 end sub
 
 'Le arquivo e monta uma mina
-
 sub LeMinaOUT (NMina as integer, Editando as integer = 0)
   dim as string Linha, NArq
-  'randomize
   LimpaMina
   'zera contador de tesouros para iniciar a contagem
   Mina.Tesouros = 0
@@ -1765,8 +1540,8 @@ sub LeMinaOUT (NMina as integer, Editando as integer = 0)
     LeMinaDet Editando
     close #1
   else  'Arquivo não existe
-    Mensagem 4, 8, TXT(0), TXT(50),""
-    if Tecla <>"" and Tecla <> UltTecla then
+    Mensagem 4, 8, TXT(0), TXT(50), ""
+    if Tecla <> "" and Tecla <> UltTecla then
       MudaStatus NoMenu
     end if
     MudaStatus NoMenu
@@ -1855,10 +1630,10 @@ sub Joga
           end if
         end if
         if OpMenu = F then
-          put (32 + f * 80, 284), BMP (277), (0,0)-(95,95), alpha
-          put (48 + F * 80, 300), BMP (276), (f*64,64)-Step(63,63), trans
+          put (32 + f * 80, 284), GBitmaps(277), (0,0)-(95,95), alpha
+          put (48 + F * 80, 300), GBitmaps(276), (f*64,64)-Step(63,63), trans
         else
-          put (48 + F * 80, 300), BMP (276), (f*64,0)-Step(63,63), trans
+          put (48 + F * 80, 300), GBitmaps(276), (f*64,0)-Step(63,63), trans
         end if
       next
       EscreveCentro TXT (OpMenu + 2), 380, 1, 1
@@ -1956,8 +1731,8 @@ sub Joga
           end if
           EscreveCentro Idioma (f), 434 - (IQuant + 3) * 16 + F * 32, 1, 0
         next
-        line (250, 426 - (IQuant + 3) * 16 + NAtual * 32) - step (300, 35), rgb (0, 127, 255), b
-        line (251, 427 - (IQuant + 3) * 16 + NAtual * 32) - step (298, 33), rgb (0, 127, 255), b
+        line (250, 426 - (IQuant + 3) * 16 + NAtual * 32) - step (300, 35), rgb(0, 127, 255), b
+        line (251, 427 - (IQuant + 3) * 16 + NAtual * 32) - step (298, 33), rgb(0, 127, 255), b
         if MouseSobre > -1 and MouseDisparou = 1 then NAtual = MouseSobre : Tecla = "["
         if UltTecla <> Tecla then
           if (Tecla = "U" or Tecla ="L") and NAtual > 0 then NAtual -= 1
@@ -1991,15 +1766,15 @@ sub Joga
           XM = (F mod 10) * 65 + 80
           YM = int (F / 10) * 40 + (370 - int((Mina2 + 9)/10) * 20)
           if Mina1 + F > Jogo.MaxAlcancada then
-            put (XM, YM + 2), BMP (276), (576, 33) - (630, 65), trans
+            put (XM, YM + 2), GBitmaps(276), (576, 33) - (630, 65), trans
           else
-            put (XM, YM + 2), BMP (276), (576, 0) - (630, 32), trans
+            put (XM, YM + 2), GBitmaps(276), (576, 0) - (630, 32), trans
           end if
           if (MouseX > XM) and (MOuseX < XM + 54) and (MouseY > YM + 2) and (MouseY < YM + 35) then
             MouseSobre = Mina1 + F
           end if
           if Mina1 + F > Jogo.MaxAlcancada then
-            put (XM, YM + 6), BMP (276), (576, 103) - (630, 127), trans
+            put (XM, YM + 6), GBitmaps(276), (576, 103) - (630, 127), trans
           elseif Mina1 + F < 10 then
             Escreve str(Mina1 + F), XM + 23, YM + 8, 1, 0
           elseif Mina1 + F < 100 then
@@ -2012,7 +1787,7 @@ sub Joga
         if MouseSobre > -1 and MouseDisparou = 1 then Boneco.Mina = MouseSobre : Tecla = "["
         XM = ((Boneco.Mina - Mina1) mod 10) * 65 + 80
         YM = int ((Boneco.Mina - Mina1) / 10) * 40 + (370 - int((Mina2+9)/10) * 20)
-        put (XM, YM), BMP (276), (576, 66)-(630, 102), trans
+        put (XM, YM), GBitmaps(276), (576, 66)-(630, 102), trans
         if MouseWDir = -1 then Tecla = "#"
         if MouseWDir = 1 then Tecla = "@"
         if Tecla <>"" and Tecla <> UltTecla then
@@ -2046,7 +1821,7 @@ sub Joga
           end select
         end if
       case Volume 'Ajuste do Volume
-        put (364,250), BMP (276), (256,0)-Step(63,63), trans
+        put (364,250), GBitmaps(276), (256,0)-Step(63,63), trans
         MouseSobre = -1
         if (MouseY > 330) and (MouseY < 400) and (MouseX > 270) and (MouseX < 530) then
           MouseSobre = (MouseX - 275) / 2
@@ -2130,7 +1905,7 @@ sub Joga
           for F = 0 to Mina2 - 1
             XM = (F mod 10) * 65 + 80
             YM = int (F / 10) * 40 + (370 - int((Mina2 + 9)/10) * 20)
-            put (XM, YM+2), BMP (276), (576, 0)-(630, 32), trans
+            put (XM, YM+2), GBitmaps(276), (576, 0)-(630, 32), trans
             if (MouseX > XM) and (MOuseX < XM + 54) and (MouseY > YM + 2) and (MouseY < YM + 35) then
               MouseSobre = Mina1 + F
             end if
@@ -2147,7 +1922,7 @@ sub Joga
           if MouseSobre > -1 and MouseDisparou = 1 then Boneco.Mina = MouseSobre : Tecla = "["
           XM = ((Boneco.Mina - Mina1) mod 10) * 65 + 80
           YM = int ((Boneco.Mina - Mina1) / 10) * 40 + (370 - int((Mina2 + 9)/10) * 20)
-          put (XM, YM), BMP (276), (576,66)-(630, 102), trans
+          put (XM, YM), GBitmaps(276), (576,66)-(630, 102), trans
           if MouseWDir = -1 then Tecla = "#"
           if MouseWDir = 1 then Tecla = "@"
           if Tecla <>"" and Tecla <> UltTecla then
@@ -2259,7 +2034,7 @@ sub Joga
             LMTEC=""
             LimpaTeclado
             opcao1 = 0
-            DesligaSons
+            TurnOffSounds
             while lmtec <> " " and LMTec <> chr(13) and lmtec <> chr(27)
               cls
               Mensagem 4, 5, TXT (95), "", "", 400, 300, Opcao1
@@ -2551,7 +2326,7 @@ sub Joga
                 Objeto(.x, .y).tp = 81
                 .ItSuporte -= 1
               else
-                Sound06
+                PlaySoundCannotUse
               end if
             end if
             'Usar Picareta
@@ -2561,7 +2336,7 @@ sub Joga
                   .ItPicareta -= 1
                   .NaPicareta  = 1
                 else
-                  Sound06
+                  PlaySoundCannotUse
                 end if
               end if
             'Usar Furadeira
@@ -2582,7 +2357,7 @@ sub Joga
                     Sound07(comport(tpobjeto(objeto(.x - 1, .y).tp).tipo).som)
                   end if
                 else
-                  Sound06
+                  PlaySoundCannotUse
                 end if
               end if
             'Aciona bomba pequena
@@ -2593,7 +2368,7 @@ sub Joga
                   objeto(.x, .y).Tp    = 77
                   objeto(.x, .y).Passo   = 1
                 else
-                  Sound06
+                  PlaySoundCannotUse
                 end if
               end if
             'Aciona bomba grande
@@ -2604,7 +2379,7 @@ sub Joga
                   objeto(.x,.y).Tp   = 79
                   objeto(.x,.y).Passo  = 1
                 else
-                  Sound06
+                  PlaySoundCannotUse
                 end if
               end if
             '****DESATIVAR:::
@@ -2738,7 +2513,7 @@ sub Joga
           Desenha
         end if
       else
-        DesligaSons
+        TurnOffSounds
       end if
 
     case Pausado 'PAUSA NO JOGO
@@ -2752,16 +2527,16 @@ sub Joga
     case GameOver 'GAME OVER
 
       Desenha
-      SorteiaNotaGameOver
+      GenerateAndPlaySoundGameOver
       if XM < 30 then
-        put ( 240 + XM * 3, XM * 8.5), BMP (212), (0, 0) - (112, 28), trans
-        put ( 452 - xm * 3, 580- xm * 8.5), BMP (212), (18, 33) - (127, 63), trans
+        put ( 240 + XM * 3, XM * 8.5), GBitmaps(212), (0, 0) - (112, 28), trans
+        put ( 452 - xm * 3, 580- xm * 8.5), GBitmaps(212), (18, 33) - (127, 63), trans
         XM += 1
       elseif XM < 60 then
-        put (334 + rnd * (60 - XM), 268+rnd * (60 - XM)), BMP (212), trans
+        put (334 + rnd * (60 - XM), 268+rnd * (60 - XM)), GBitmaps(212), trans
         XM += 1
       elseif XM < 2000 then
-        put (334 + rnd * (260-XM)/75, 268 + rnd * (260-XM)/75), BMP (212), trans
+        put (334 + rnd * (260-XM)/75, 268 + rnd * (260-XM)/75), GBitmaps(212), trans
         XM += 1
       else
         Sound09
@@ -2842,7 +2617,7 @@ sub Joga
       EscreveCentro TXT(72), 270
       EscreveCentro TXT(73), 305
       EscreveCentro TXT(74), 340,1
-      put (370,430), BMP(252), trans
+      put (370,430), GBitmaps(252), trans
       EscreveCentro TXT(75), 480, 1, 1
 
     case VenceuMina 'CONCLUIU A MINA
@@ -2894,7 +2669,7 @@ sub Joga
         Fundo (g,h)=1
         objeto (g,h).tp = 40 + int(rnd*16)
       next
-      SorteiaNotaVenceu
+      GenerateAndPlaySoundGameWon
       Desenha
       jogo.Ciclo=jogo.passos-1
       Mensagem 0, 12, TXT(80), TXT(81), ""
@@ -2925,11 +2700,11 @@ sub Joga
       'Opções:
       EscreveCentro "Top 10", 140, 2, 1
       for f = -1 to 9
-        line(197, 200 + f * 30) - step (394, 0), rgb (128, 128, 128)
+        line(197, 200 + f * 30) - step (394, 0), rgb(128, 128, 128)
       next
       if PosTop10 > 0 then
-        line(187, 175 + (PosTop10 - 1) * 30) - step (413, 31), rgb (80 + 80 * VRed, 80 + 80 * VGreen, 80 + 80 * VBlue), bf
-        line(190, 178 + (PosTop10 - 1) * 30) - step (407, 25), rgb (48 + 48 * VRed, 48 + 48 * VGreen, 48 + 48 * VBlue), bf
+        line(187, 175 + (PosTop10 - 1) * 30) - step (413, 31), rgb(80 + 80 * VRed, 80 + 80 * VGreen, 80 + 80 * VBlue), bf
+        line(190, 178 + (PosTop10 - 1) * 30) - step (407, 25), rgb(48 + 48 * VRed, 48 + 48 * VGreen, 48 + 48 * VBlue), bf
       end if
       for f=0 to 9
         g = len (Toppt(f).nome)
@@ -3359,14 +3134,14 @@ sub Mensagem (QCor as integer, Tipo as integer, T1 as string, T2 as string, T3 a
   for F = 0 to V - 1
     Escreve Tex(F), OX - 24 * (Tipo > 1) - LargTexto(Tex(F), - (f = 0)) /2  , OY - Alt * 16 + F * 32 + 4, - (f = 0), 0
   next
-  if Tipo > 1 then put (OX - Larg * 16, OY - Alt * 16), BMP (252 + int(Tipo / 2)),trans
+  if Tipo > 1 then put (OX - Larg * 16, OY - Alt * 16), GBitmaps(252 + int(Tipo / 2)),trans
   MouseSimNao = 0
   if Tipo mod 2 = 1 then
-    put (OX - 66 + Opcao * 76, Oy + Alt * 16 - 38), BMP (276), (576, 0) - (630, 32), trans
-    put (OX + 10 - 76 * Opcao, Oy + Alt * 16 - 38), BMP (276), (576, 33) - (630, 65), trans
+    put (OX - 66 + Opcao * 76, Oy + Alt * 16 - 38), GBitmaps(276), (576, 0) - (630, 32), trans
+    put (OX + 10 - 76 * Opcao, Oy + Alt * 16 - 38), GBitmaps(276), (576, 33) - (630, 65), trans
     Escreve TXT(58), OX - 38 - LargTexto (TXT (58), 0)/2, Oy + Alt * 16 - 32, 0, 0
     Escreve TXT(59), OX + 38 - LargTexto (TXT (59), 0)/2, Oy + Alt * 16 - 32, 0, 0
-    put (OX - 66 + Opcao * 76, Oy + Alt * 16 - 40), BMP (276), (576, 66) - (630, 102), trans
+    put (OX - 66 + Opcao * 76, Oy + Alt * 16 - 40), GBitmaps(276), (576, 66) - (630, 102), trans
     if (MouseY > OY + Alt * 16 - 39) and (MouseY < Oy + Alt * 16 - 4) then
       if MouseX > OX - 67 and MouseX < OX - 9 then MouseSimNao = 1
       if MouseX > OX + 9 and MouseX < OX + 67 then MouseSimNao = 2
@@ -3378,44 +3153,44 @@ end sub
 sub DesBox (H as integer, V as integer, QCor as integer, OX as integer = 400, OY as integer = 300)
   dim as integer F, G
   if QCor < 4 then
-    put (OX - 16 - H * 16, OY - 16 - V * 16), BMP (248 + QCor), (0, 0) - step (15, 15), alpha
-    put (OX - 16 - H * 16, OY + V * 16), BMP (248 + QCor), (0, 48) - step (15, 15), alpha
-    put (OX + H * 16, OY - 16 - V * 16), BMP (248 + QCor), (48, 0) - step (15, 15), alpha
-    put (OX + H * 16, OY + V * 16), BMP (248 + QCor), (48, 48) - step (15, 15), alpha
+    put (OX - 16 - H * 16, OY - 16 - V * 16), GBitmaps(248 + QCor), (0, 0) - step (15, 15), alpha
+    put (OX - 16 - H * 16, OY + V * 16), GBitmaps(248 + QCor), (0, 48) - step (15, 15), alpha
+    put (OX + H * 16, OY - 16 - V * 16), GBitmaps(248 + QCor), (48, 0) - step (15, 15), alpha
+    put (OX + H * 16, OY + V * 16), GBitmaps(248 + QCor), (48, 48) - step (15, 15), alpha
     for F = 0 to H - 1
-      put (OX - H * 16 + F * 32, OY - 16 - V * 16), BMP (248 + QCor), (16, 0) - step (31, 15), alpha
-      put (OX - H * 16 + F * 32, OY + V * 16), BMP (248 + QCor), (16, 48) - step (31, 15), alpha
+      put (OX - H * 16 + F * 32, OY - 16 - V * 16), GBitmaps(248 + QCor), (16, 0) - step (31, 15), alpha
+      put (OX - H * 16 + F * 32, OY + V * 16), GBitmaps(248 + QCor), (16, 48) - step (31, 15), alpha
       for G = 0  to V - 1
-        put (OX - H * 16 + F * 32, OY - V * 16 + G * 32), BMP (248 + QCor), (16, 16) - step (31, 31), alpha
+        put (OX - H * 16 + F * 32, OY - V * 16 + G * 32), GBitmaps(248 + QCor), (16, 16) - step (31, 31), alpha
       next
     next
     for G = 0  to V - 1
-      put (OX - 16- H * 16, OY - V * 16 + G * 32), BMP (248 + QCor), (0, 16) - step (15, 31), alpha
-      put (OX + H * 16, OY - V * 16 + G * 32), BMP (248 + QCor), (48, 16) - step (15, 31), alpha
+      put (OX - 16- H * 16, OY - V * 16 + G * 32), GBitmaps(248 + QCor), (0, 16) - step (15, 31), alpha
+      put (OX + H * 16, OY - V * 16 + G * 32), GBitmaps(248 + QCor), (48, 16) - step (15, 31), alpha
     next
   else
     QCor -= 4
-    put (OX - 16 - H * 16, OY - 16 - V * 16), BMP (248 + QCor), (0, 0) - step (15, 15), trans
-    put (OX - 16 - H * 16, OY + V * 16), BMP (248 + QCor), (0, 48) - step (15, 15), trans
-    put (OX + H * 16, OY - 16 - V * 16), BMP (248 + QCor), (48, 0) - step (15, 15), trans
-    put (OX + H * 16, OY + V * 16), BMP (248 + QCor), (48, 48) - step (15, 15), trans
+    put (OX - 16 - H * 16, OY - 16 - V * 16), GBitmaps(248 + QCor), (0, 0) - step (15, 15), trans
+    put (OX - 16 - H * 16, OY + V * 16), GBitmaps(248 + QCor), (0, 48) - step (15, 15), trans
+    put (OX + H * 16, OY - 16 - V * 16), GBitmaps(248 + QCor), (48, 0) - step (15, 15), trans
+    put (OX + H * 16, OY + V * 16), GBitmaps(248 + QCor), (48, 48) - step (15, 15), trans
     for F = 0 to H - 1
-      put (OX - H * 16 + F * 32, OY - 16 - V * 16), BMP (248 + QCor), (16, 0) - step (31, 15), trans
-      put (OX - H * 16 + F * 32, OY + V * 16), BMP (248 + QCor), (16, 48) - step (31, 15), trans
+      put (OX - H * 16 + F * 32, OY - 16 - V * 16), GBitmaps(248 + QCor), (16, 0) - step (31, 15), trans
+      put (OX - H * 16 + F * 32, OY + V * 16), GBitmaps(248 + QCor), (16, 48) - step (31, 15), trans
       for G = 0  to V - 1
-        put (OX - H * 16 + F * 32, OY - V * 16 + G * 32), BMP (248 + QCor), (16, 16) - step (31, 31), trans
+        put (OX - H * 16 + F * 32, OY - V * 16 + G * 32), GBitmaps(248 + QCor), (16, 16) - step (31, 31), trans
       next
     next
     for G = 0  to V - 1
-      put (OX - 16- H * 16, OY - V * 16 + G * 32), BMP (248 + QCor), (0, 16) - step (15, 31), trans
-      put (OX + H * 16, OY - V * 16 + G * 32), BMP (248 + QCor), (48, 16) - step (15, 31), trans
+      put (OX - 16- H * 16, OY - V * 16 + G * 32), GBitmaps(248 + QCor), (0, 16) - step (15, 31), trans
+      put (OX + H * 16, OY - V * 16 + G * 32), GBitmaps(248 + QCor), (48, 16) - step (15, 31), trans
     next
   end if
 end sub
 
 'Desenha o LOGO do game
 sub PutLogo (LX as integer, LY as integer)
-  put (LX, LY), BMP (211), trans
+  put (LX, LY), GBitmaps(211), trans
 end sub
 
 function CTRX as integer
@@ -3550,55 +3325,50 @@ SaiDaqui:
 end function
 
 'Le mina do arquivo (padrão)
-
 sub LeMinaIn (NMina as integer, SoQuant as integer = 0)
   dim as longint FilePos, FileTam
   dim as ushort MinaTemp, TotMinas
   dim as ubyte Temporary1
-  'randomize
   LimpaMina
   'zera contador de tesouros para iniciar a contagem
   Mina.Tesouros = 0
   'Abre arquivo
   'Verifica se o arquivo existe
-  if fileexists ("minas.bin") then
+  if fileexists("minas.bin") then
     open "minas.bin" for binary as #1
-    FileTam = lof (1)
+    FileTam = lof(1)
     if FileTam > 20 then
-      get #1, , TotMinas
+      get #1,, TotMinas
       Jogo.NumMinas = TotMinas
       FilePos = 3
       if SoQuant = 0 then
-        get #1, , MinaTemp
-        get #1, , Mina.LArg
-        get #1, , Mina.Alt
-        get #1, , Mina.Noturno
-        get #1, , Mina.Tempo
+        get #1,, MinaTemp
+        get #1,, Mina.LArg
+        get #1,, Mina.Alt
+        get #1,, Mina.Noturno
+        get #1,, Mina.Tempo
         while MinaTemp < NMina
           FilePos = FilePos + ((Mina.Alt * Mina.Larg) * 3) + 9
           get #1, FilePos, MinaTemp
-          get #1, , Mina.LArg
-          get #1, , Mina.Alt
-          get #1, , Mina.Noturno
-          get #1, , Mina.Tempo
+          get #1,, Mina.LArg
+          get #1,, Mina.Alt
+          get #1,, Mina.Noturno
+          get #1,, Mina.Tempo
         wend
         LeMinaDet 0
       end if
     else
-      'MessageBox NULL,TXT(87), TXT(0), MB_ICONERROR
-      print TXT(87), TXT(0)
+      Mensagem 4, 8, TXT(87), TXT(0), ""
       MudaStatus NoMenu
     end if
     close #1
   else  'Arquivo não existe
-    'MessageBox NULL, TXT(88), TXT(0), MB_ICONERROR
-    print TXT(88), TXT(0)
+    Mensagem 4, 8, TXT(88), TXT(0), ""
     MudaStatus NoMenu
   end if
 end sub
 
 'Le o desenho da mina (tiles)
-
 sub LeMinaDet (Editando as integer = 0)
   dim as integer MXR, MYR, F, G
   MXR=0
@@ -3618,9 +3388,9 @@ sub LeMinaDet (Editando as integer = 0)
   for g = 0 to Mina.Alt
     'Le linha
     for f = 0 to Mina.Larg
-      get #1, , Fundo (MXR + f, MYR + g)
-      get #1, , Frente (MXR + f, MYR + g)
-      get #1, , Objeto (MXR + f, MYR + g).tp
+      get #1,, Fundo (MXR + f, MYR + g)
+      get #1,, Frente (MXR + f, MYR + g)
+      get #1,, Objeto (MXR + f, MYR + g).tp
       'Posição inicial do boneco
       if objeto (MXR + f, MYR + g).tp = 85 then
         Mina.X = MXR + F
@@ -3637,51 +3407,45 @@ sub LeMinaDet (Editando as integer = 0)
   Mina.Larg += MXR
   Mina.Alt += MYR
   Jogo.UltExplosao = 0
-  Jogo.Ciclo=0
-  Iniciado=0
+  Jogo.Ciclo = 0
+  Iniciado = 0
 end sub
 
 'Faz levantamento e contagem das minas personalizadas
-
 sub LeMinasPers
   dim as string Narq
   dim as integer Ordem, F
-  screenset ScrAtiva,  ScrAtiva
+  screenset ScrAtiva, ScrAtiva
   Ordem = 0
   line (298, 320) - (502, 344), &HFFFFFF, b
   for F = 0 to 999
     line (300 + f/5, 322) - step (0, 20), &H7080F0
     NArq = "minas/m" + right("000" & str(f), 3) + ".map"
-    if fileexists (Narq) then
-      MinaPers (Ordem) = F
+    if fileexists(Narq) then
+      MinaPers(Ordem) = F
       Ordem +=1
     end if
   next
   if Ordem < 999 then
     for F = Ordem to 999
-      MinaPers (f) = 0
+      MinaPers(f) = 0
     next
   end if
-  Boneco.Mina = MinaPers (0)
+  Boneco.Mina = MinaPers(0)
   QuantPers = Ordem
 end sub
 
-'Gera um som aleatório (Game Over)
-
-sub SorteiaNotaGameOver
+sub GenerateAndPlaySoundGameOver
   dim Nota as integer
-  'randomize
   if Jogo.Status <> GameOver or (rnd * 500) < 10 then
     Nota = (int(rnd * 32) + 64) shl 8
-    Sound14(Nota)
+    PlaySoundGameOver(Nota)
   end if
 end sub
 
-'Gera um som aleatório (Vencendo o jogo)
-sub SorteiaNotaVenceu
+sub GenerateAndPlaySoundGameWon
   dim Nota as integer
-  'randomize
-  if (QtdNotasVenceu = 0) or (QtdNotasVenceu < 6 and Clock - TimerNotaVenceu >= .11) then
+  if (QtdNotasVenceu = 0) or (QtdNotasVenceu < 6) and (Clock - TimerNotaVenceu >= .11) then
     QtdNotasVenceu += 1
     if QtdNotasVenceu = 1 then
       Nota = (int(rnd * 32) + 36) shl 8
@@ -3689,7 +3453,7 @@ sub SorteiaNotaVenceu
       Nota = (int(rnd * 6) + (UltNotaGameOver shr 8) - 1) shl 8
       if Nota = ultNotaGameOver then Nota -= 512
     end if
-    Sound15(Nota)
+    PlaySoundGameWon(Nota)
     TimerNotaVenceu = Clock
   elseif Clock - TimerNotaVenceu >= .6 then
     QtdNotasVenceu = 0
@@ -3762,10 +3526,11 @@ sub CalculaBonusTempo
 end sub
 
 'ROTINAS REFERENTES AO EDITOR DE MINAS
+
 'Escreve um número pequeno e de 2 algarismos como cabeçalho de linha e coluna
 sub EscreveNumeroPeq (byval Numero as integer, X1 as integer, Y1 as integer)
-  put (x1, Y1), BMP (274), (int(Numero/10) * 6, 0) - step(5, 7), trans
-  put (x1 + 6, Y1), BMP (274), ((Numero mod 10) * 6, 0)- step(5, 7), trans
+  put (x1, Y1), GBitmaps(274), (int(Numero/10) * 6, 0) - step(5, 7), trans
+  put (x1 + 6, Y1), GBitmaps(274), ((Numero mod 10) * 6, 0)- step(5, 7), trans
 end sub
 
 'Desenha um quadro
@@ -4301,32 +4066,32 @@ end sub
 'Desenha um item na tela do editor, conforme seu tipo
 sub DesenhaItem (ITX as integer, ITY as integer, ITN as integer)
   if ITN = 0 then 'Boneco (ITN = 0)
-    put (ITX, ITY), BMP (116), trans
+    put (ITX, ITY), GBitmaps(116), trans
   elseif ITN = 1 then 'Fundo 0 = água (ITN = 1)
-    put (ITX, ITY), BMP (213), pset
+    put (ITX, ITY), GBitmaps(213), pset
   elseif ITN = 2 then 'Fundo 1 = vazio
     line (ITX, ITY) - step (31, 31), &HFFFFFF, B
     Escreve "Fu", ITX + 7, ITY - 1
     Escreve "vz", ITX + 7, ITY + 13
     line (ITX, ITY + 31) - step (31, -31), &HFFFFFF
   elseif ITN  < 26 then 'Fundos 1 a 24 (ITN = 2 a 25)
-    put (ITX, ITY), BMP (ITN - 1), pset
+    put (ITX, ITY), GBitmaps(ITN - 1), pset
   elseif ITN = 26 then  'Frente 0 = vazio
     line (ITX, ITY) - step (31, 31), &HFFFFFF, B
     Escreve "Fr", ITX + 7, ITY - 1
     Escreve "vz", ITX + 7, ITY + 13
     line (ITX, ITY + 31) - step (31, -31), &HFFFFFF
   elseif ITN < 38 then  'Frentes 0 a 10
-    put (ITX, ITY), BMP (ITN - 2), trans
+    put (ITX, ITY), GBitmaps(ITN - 2), trans
   elseif ITN = 38 then  'Objeto 0 = vazio
     line (ITX, ITY) - step (31, 31), &HFFFFFF, B
     Escreve "Obj", ITX + 3, ITY - 1
     Escreve "vz", ITX + 7, ITY + 13
     line (ITX, ITY + 31) - step (31, - 31), &HFFFFFF
   elseif ITN < 115 then
-    put (ITX, ITY), BMP (TpObjeto(ITN - 38).img), trans
+    put (ITX, ITY), GBitmaps(TpObjeto(ITN - 38).img), trans
   elseif ITN < 123 then
-    put (ITX, ITY), BMP (TpObjeto(ITN - 33).img), trans
+    put (ITX, ITY), GBitmaps(TpObjeto(ITN - 33).img), trans
   else
     Escreve "?", ITX + 10, ITY + 7
   end if
@@ -4607,7 +4372,7 @@ sub MudaStatus (NovoStatus as integer)
     LimpaTeclado
     TTDemo1 = Clock
   case GameOver
-    SorteiaNotaGameOver
+    GenerateAndPlaySoundGameOver
     XM =0
   case Instruc
     Jogo.TelaInstr = 0
