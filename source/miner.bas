@@ -32,7 +32,7 @@ end function
 #define DefaultLanguage "Portuguese"
 
 const CAppName = "FreeBASIC Miner"
-const CAppVer  = "1.0"
+const CAppVer  = "1.1"
 const CBuild   = "build " & __DATE__ & " " & __TIME__ & " " & __FB_SIGNATURE__
 const CAppInfo = CAppName & " " & CAppVer & " " & CBuild
 const C255     = chr(255)
@@ -44,10 +44,10 @@ declare sub EscrevePT(Pontos as  integer, X as integer, Y as integer, CJCarac as
 declare function LargTexto(byval Texto as string, Bold as integer = 0) as integer
 declare sub IniciaJogo
 declare sub IniciaVida
-declare sub LeMinaIn(NMina as integer, SoQuant as integer = 0)
-declare sub LeMinaOUT(NMina as integer, Editando as integer = 0)
+declare sub LoadMineFromFile(NMina as integer, SoQuant as integer = 0)
+declare sub LoadCustomMineFromFile(NMina as integer, Editando as integer = 0)
 declare sub LeMinaDet(Editando as integer = 0)
-declare sub LeMinasPers
+declare sub SearchCustomMines
 declare sub Desenha
 declare sub Joga
 declare sub PegaObj(POX as integer, POY as integer)
@@ -60,25 +60,25 @@ declare sub TrocaTelas
 declare sub MontaTopDez
 declare sub LimpaTopDez
 declare sub Mensagem(QCor as integer, Tipo as integer, T1 as string, T2 as string, T3 as string, OX as integer = 400, OY as integer= 300, Opcao as integer = 0)
-declare sub DesBox(H as integer, V as integer, QCor as integer, OX as integer = 400, OY as integer = 300)
+declare sub DesBox(h as integer, V as integer, QCor as integer, OX as integer = 400, OY as integer = 300)
 declare sub PutLogo(LX as integer, LY as integer)
-declare sub GenerateAndPlaySoundGameOver
-declare sub GenerateAndPlaySoundGameWon
+declare sub PlaySoundGameOver
+declare sub PlaySoundGameWon
 declare sub MarcaPt(Pontos as integer, X as integer, Y as integer)
 declare function CTRX as integer
 declare function CTRY as integer
-declare function ProximaTeclaDemo() as string
-declare sub LoadBar(perc as integer)
+declare function ProximaTeclaDemo as string
+declare sub DrawProgressBar(APercent as integer)
 declare sub RegravaConfig
-declare function LeTXT(Idioma as string) as integer
-declare sub ProcIdiomas()
+declare function LoadLanguage(ALang as string) as integer
+declare sub ProcIdiomas
 declare sub DesFundo
 declare sub VeSeGanhaVida(Acrescimo as integer)
 declare sub CalculaBonusTempo
-declare sub LeMouse
+declare sub GetMouseState
 declare sub MudaStatus(NovoStatus as integer)
 declare sub LimpaTeclado(IncLMTec as integer = 0)
-'Editor:
+' Editor
 declare sub Edita
 declare sub EscreveNumeroPeq(byval Numero as integer, X1 as integer, Y1 as integer)
 declare sub SalvaMina(ParaTestar as integer = 0)
@@ -94,181 +94,169 @@ declare function PosMouseEd() as integer
 declare sub FazRedo
 declare sub FazUndo
 declare sub LimpaMinaEditor
-declare function PergFecha() as integer
+declare function PergFecha as integer
 declare sub SwapEDXY
 declare sub GravaUndo
-declare function PerguntaSeEncerraTeste() as integer
+declare function PerguntaSeEncerraTeste as integer
 
-'Variáveis compartilhadas
-'Armazenamento das Imagens
-dim shared Carregou as integer
-dim shared as any ptr Grafx, GrafX2, GBitmaps(281)
-'Mensagens de pontos na tela
-dim shared as TMsgPT MSG(20)
-'Recordes
-dim shared TopPt(10) as Recorde
-dim shared as integer ConfirmDel
-'Menu
-dim shared as integer OpMenu, XM, YM, Mina1, Mina2, PosTop10, Opcao1
-'Genéricas
+' Armazenamento das imagens
+dim shared as any ptr GBitmap(281)
+' Mensagens de pontos na tela
+dim shared as TScreenMessage GMessage(20)
+' Recordes
+dim shared GBestScore(10) as Recorde
+' Menu
+dim shared as integer OpMenu, Opcao1, PosTop10, Mina1, Mina2, XM, YM
+' Genéricas
 dim shared as integer Iniciado, MapX, MapY, ProxMsg, LenMSG, EncerraEditor
 dim shared as string Tecla, UltTecla
 dim shared as uinteger CorRGB, CorRGB2
-'Fonte
-dim shared as string Lt_, XTemp
+' Fonte
+dim shared as string Lt_
 dim shared as integer PosLetra(100, 1)
-'Screen
+' Screen
 dim shared ScrAtiva as integer
-'Idiomas
-dim shared as string Idioma(15), IAtual
-dim shared as integer IQuant, NAtual
-'Timer
+' Idiomas
+dim shared as string GLangName(15), GCurrLangName
+dim shared as integer GLangCount, GCurrLangIndex
+' Timer
 dim shared as uinteger ATimer, NTimer
 dim shared NumFPS(5) as integer
 dim shared NomFPS(5) as string
-dim shared as double TIMESTART
-'Jogo
-dim shared Jogo as TJogo
-dim shared Boneco as TBoneco
+dim shared as double GTimeStart
+' Jogo
+dim shared GJogo as TJogo
+dim shared GBoneco as TBoneco
 dim shared as TMina Mina
 dim shared PontoTesouro(7 to 22) as integer
 dim shared as integer TmpSleep, PtBonus, Quadros, ultQuadros
-dim shared as double timer1, Timer2
-'Explosões
+dim shared as double GTimer1, GTimer2
+' Explosões
 dim shared Explosao(10) as TExplosao
-'Comportamentos de objetos
+' Comportamentos de objetos
 dim shared Comport(13) as TComportamento
-'Tipos de objetos
-dim shared TpObjeto(84) as TiposObj
-'Tiles: fundo - layer 0 (0 = água)
+' Tipos de objetos
+dim shared GObjectData(84) as TObjectData
+' Tiles: fundo - layer 0 (0 = água)
 dim shared as ubyte Fundo(-1 to 100, -1 to 60)
-'Tiles: objetos - layer 1
+' Tiles: objetos - layer 1
 dim shared as TObj Objeto(-1 to 100, -1 to 60)
-'Tiles: frente - layer 2
+' Tiles: frente - layer 2
 dim shared as ubyte Frente(-1 to 100, -1 to 60)
-'Imagens do boneco
+' Imagens do boneco
 dim shared Parado(5) as integer
-dim shared Movendo(7,3) as integer
-dim shared Usando(2,1) as integer
-'Tela inicial
-dim shared as integer CRed, CGreen, CBlue, VRed, VGreen, VBlue, CRed2, CGreen2, CBlue2
-'Modo Demonstração
+dim shared Movendo(7, 3) as integer
+dim shared Usando(2, 1) as integer
+' Tela inicial
+dim shared as integer GGrad, GRed, GGreen, GBlue
+' Modo demonstração
 dim shared as string TeclasDemo
 dim shared as integer PositDemo, DemoW1, DemoW2, DemoCiclo, MensDemo, TempMens
-dim shared as double TTDemo1, TTDemo2
-'Minas personalizadas
+dim shared as double GDemoTimer
+' Minas personalizadas
 dim shared as integer MinaPers(999), SelPers(999), QuantPers, PersTemp
-'Textos (todos)
-dim shared as string TXT(159)
-'Mouse:
-dim shared as integer MouseX, MouseY, MouseB, MouseXAnt, MouseYAnt, MouseBAnt, MouseDisparou, MouseLiberou, MouseSimNao, MouseMoveu, MouseSobre, MouseW, MouseWAnt, MouseWDir
-'Editor:
+' Textos
+dim shared as string GText(159)
+' Mouse
+dim shared as integer GMX, GMY, GMB, GMXOld, GMYOld, GMBOld, GMBDown, GMBUp, MouseSimNao, GMMove, MouseSobre, GMW, GMWOld, MouseWDir
+' Editor
 dim shared as TMina MinaEd
 dim shared as string LMTec, UMTec
 dim shared as integer EdX1, EdX2, EdY1, EdY2, EdMOn, EdShow, PrimeiroItem, ItemSel
 dim shared as integer EDXX1, EDXX2, EDYY1, EDYY2, EdGrid, PosMouse
-'Undo:
+' Undo
 dim shared as integer MatrizAtual, MatrizRedoLimite, MatrizUndoLimite, EdMovendoUndo, BonecoX(MaxUndo), BonecoY(MaxUndo)
 dim shared as ubyte UndoFundo(MaxUndo, -1 to 100, -1 to 60), UndoFrente(MaxUndo, -1 to 100, -1 to 60), UndoObjeto(MaxUndo, -1 to 100, -1 to 60)
-'Fonte
+' Fonte
 Lt_ = "ABCDEFGHIJKLMNOPQRSTUVWXYZÇÁÉÍÓÚÂÊÔÃÕÀabcdefghijklmnopqrstuvwxyzçáéíóúâêôãõà.,:?!0123456789-+'/()=_>|"
 
-windowtitle "FreeBASIC Miner"
-screen 19, 32, 2
-CRed = 0
-randomize
-VRed = int(rnd * 2)
-VGreen = int(rnd * 2)
-VBlue = int(rnd * 2)
-DesFundo
-CRed = 0
-
-draw string (25, 500), "Carregando FreeBASIC Miner..."
-line (20, 520) - (779, 554), rgb(200, 200, 200), bf
-line (21, 519) - (778, 555), rgb(200, 200, 200), b
-line (23, 523) - (776, 551), rgb(16, 16, 48), bf
-LoadBar 5
-Idioma(0) = DefaultLanguage
 DEBUG_LOG_REWRITE(CAppInfo)
-sleep 2, 1
-
-'Definição das imagens do boneco
-'Parado (depende do último movimento)
+GLangName(0) = DefaultLanguage
+windowtitle CAppName
+screen 19, 32, 2
+randomize
+GRed = int(rnd * 2)
+GGreen = int(rnd * 2)
+GBlue = int(rnd * 2)
+GGrad = 0
+DesFundo
+draw string (25, 500), "Carregando FreeBASIC Miner..."
+line (20, 520)-(779, 554), rgb(200, 200, 200), bf
+line (21, 519)-(778, 555), rgb(200, 200, 200), b
+line (23, 523)-(776, 551), rgb(16, 16, 48), bf
+DrawProgressBar 5
+' Definição das imagens do boneco
+' Parado (depende do último movimento)
 Parado(0) = 116
 Parado(1) = 119
 Parado(2) = 122
 Parado(3) = 117
 Parado(4) = 117
 Parado(5) = 116
-'Andando p/ direita
+' Andando p/ direita
 Movendo(0, 0) = 119
 Movendo(0, 1) = 118
 Movendo(0, 2) = 120
 Movendo(0, 3) = 118
-'Andando p/ esquerda
+' Andando p/ esquerda
 Movendo(1, 0) = 122
 Movendo(1, 1) = 121
 Movendo(1, 2) = 123
 Movendo(1, 3) = 121
-'Subindo
+' Subindo
 Movendo(2, 0) = 124
 Movendo(2, 1) = 117
 Movendo(2, 2) = 125
 Movendo(2, 3) = 117
-'Descendo
+' Descendo
 Movendo(3, 0) = 124
 Movendo(3, 1) = 117
 Movendo(3, 2) = 125
 Movendo(3, 3) = 117
-'Caindo
+' Caindo
 Movendo(4, 0) = 126
 Movendo(4, 1) = 126
 Movendo(4, 2) = 126
 Movendo(4, 3) = 126
-'Empurrando p/ direita
+' Empurrando p/ direita
 Movendo(5, 0) = 128
 Movendo(5, 1) = 127
 Movendo(5, 2) = 129
 Movendo(5, 3) = 127
-'Empurrando para esquerda
+' Empurrando para esquerda
 Movendo(6, 0) = 131
 Movendo(6, 1) = 130
 Movendo(6, 2) = 132
 Movendo(6, 3) = 130
-'Morrendo
+' Morrendo
 Movendo(7, 0) = 116
 Movendo(7, 1) = 119
 Movendo(7, 2) = 117
 Movendo(7, 3) = 122
-'Usando a picareta
+' Usando a picareta
 Usando(0, 0) = 133
 Usando(0, 1) = 134
-'Usando a furadeira p/ direita
+' Usando a furadeira p/ direita
 Usando(1, 0) = 135
 Usando(1, 1) = 136
-'Usando a furadeira p/ esquerda
+' Usando a furadeira p/ esquerda
 Usando(2, 0) = 137
 Usando(2, 1) = 138
-
-LoadBar 10
-sleep 2, 1
-
-'Definição dos comportamentos
-
-'Vazio (inclui água)
+DrawProgressBar 10
+' Definição dos comportamentos
+' Vazio (inclui água)
 with Comport(0)
   .Vazio = 1
   .Sobe = 0
   .Apoia = 0
   .Anda = 2
   .Mata = 0
-  .PEmpurra = 3 'Não pode ser empurrado
+  .PEmpurra = 3 ' Não pode ser empurrado
   .Cai = 0
   .Destroi = 0
   .Som = 1
 end with
-
-'Terra (pode ser eliminada)
+' Terra (pode ser eliminada)
 with Comport(1)
   .Vazio = 0
   .Sobe = 0
@@ -280,8 +268,7 @@ with Comport(1)
   .Destroi = 1
   .Som = 1
 end with
-
-'Parede destrutível
+' Parede destrutível
 with Comport(2)
   .Vazio = 0
   .Sobe = 0
@@ -293,8 +280,7 @@ with Comport(2)
   .Destroi = 2
   .Som = 1
 end with
-
-'Parede indestrutível
+' Parede indestrutível
 with Comport(3)
   .Vazio = 0
   .Sobe = 0
@@ -306,8 +292,7 @@ with Comport(3)
   .Destroi = 0
   .Som = 2
 end with
-
-'Escada
+' Escada
 with Comport(4)
   .Vazio = 0
   .Sobe = 1
@@ -319,8 +304,7 @@ with Comport(4)
   .Destroi = 1
   .Som = 1
 end with
-
-'Diamante
+' Diamante
 with Comport(5)
   .Vazio = 0
   .Sobe = 0
@@ -332,8 +316,7 @@ with Comport(5)
   .Destroi = 1
   .Som = 2
 end with
-
-'Pedra
+' Pedra
 with Comport(6)
   .Vazio = 0
   .Sobe = 0
@@ -345,8 +328,7 @@ with Comport(6)
   .Destroi = 2
   .Som = 2
 end with
-
-'Carrinho
+' Carrinho
 with Comport(7)
   .Vazio = 0
   .Sobe = 0
@@ -358,8 +340,7 @@ with Comport(7)
   .Destroi = 1
   .Som = 3
 end with
-
-'Caixa
+' Caixa
 with Comport(8)
   .Vazio = 0
   .Sobe = 0
@@ -371,8 +352,7 @@ with Comport(8)
   .Destroi = 2
   .Som = 4
 end with
-
-'Feno
+' Feno
 with Comport(9)
   .Vazio = 0
   .Sobe = 0
@@ -384,8 +364,7 @@ with Comport(9)
   .Destroi = 2
   .Som = 1
 end with
-
-'Item
+' Item
 with Comport(10)
   .Vazio = 0
   .Sobe = 0
@@ -397,8 +376,7 @@ with Comport(10)
   .Destroi = 1
   .Som = 3
 end with
-
-'Bomba acionada
+' Bomba acionada
 with Comport(11)
   .Vazio = 0
   .Sobe = 0
@@ -410,8 +388,7 @@ with Comport(11)
   .Destroi = 0
   .Som = 3
 end with
-
-'Suporte em uso
+' Suporte em uso
 with Comport(12)
   .Vazio = 0
   .Sobe = 0
@@ -423,8 +400,7 @@ with Comport(12)
   .Destroi = 1
   .Som = 2
 end with
-
-'Espetos
+' Espetos
 with Comport(13)
   .Vazio = 0
   .Sobe = 0
@@ -436,149 +412,128 @@ with Comport(13)
   .Destroi = 1
   .Som = 2
 end with
-
-LoadBar 15
-sleep 2, 1
-
-'Definição dos tipos de objetos:
-
-'Vazio (0):
-with TpObjeto(0)
+DrawProgressBar 15
+' Definição dos tipos de objetos
+dim as integer f, g, h, i
+' Vazio (0)
+with GObjectData(0)
   .Tipo = 0
   .Img  = 0
   .Item = 0
 end with
-
-dim as integer f, g, h, i
-
-'Terras (1-14):
+' Terras (1-14)
 for f = 0 to 13
-  with TpObjeto(f + 1)
+  with GObjectData(f + 1)
     .Tipo = 1
     .Img  = f + 36
     .Item = 0
   end with
 next
-
-'Paredes destrutíveis (15-25):
+' Paredes destrutíveis (15-25)
 for f = 0 to 10
-  with TpObjeto(f + 15)
+  with GObjectData(f + 15)
     .Tipo = 2
     .Img  = f + 50
     .Item = 0
   end with
 next
-
-'Paredes indestrutíveis (26-37):
+' Paredes indestrutíveis (26-37)
 for f = 0 to 11
-  with TpObjeto(f + 26)
+  with GObjectData(f + 26)
     .Tipo = 3
     .Img  = f + 61
     .Item = 0
   end with
 next
-
-'Escadas (38-39):
+' Escadas (38-39)
 for f = 0 to 1
-  with TpObjeto(f + 38)
+  with GObjectData(f + 38)
     .Tipo = 4
     .Img  = f + 73
     .Item = 0
   end with
 next
-
-'Diamantes (40-55):
+' Diamantes (40-55)
 for f = 0 to 15
-  with TpObjeto(f + 40)
+  with GObjectData(f + 40)
     .Tipo = 5
     .Img  = f + 75
     .Item = f + 7
   end with
 next
-
-'Pedras (56-63):
+' Pedras (56-63)
 for f = 0 to 7
-  with TpObjeto(f + 56)
+  with GObjectData(f + 56)
     .Tipo = 6
     .Img  = f + 91
     .Item = 0
   end with
 next
-
-'Carrinhos (64-66):
+' Carrinhos (64-66)
 for f = 0 to 2
-  with TpObjeto(f + 64)
+  with GObjectData(f + 64)
     .Tipo = 7
     .Img  = f + 99
     .Item = 0
   end with
 next
-
-'Caixas (67-68):
+' Caixas (67-68)
 for f = 0 to 1
-  with TpObjeto(f + 67)
+  with GObjectData(f + 67)
     .Tipo = 8
     .Img  = f + 102
     .Item = 0
   end with
 next
-
-'Feno (69-70):
+' Feno (69-70)
 for f = 0 to 1
-  with TpObjeto(f + 69)
+  with GObjectData(f + 69)
     .Tipo = 9
     .Img  = f + 104
     .Item = 0
   end with
 next
-
-'Itens para pegar (71-76):
+' Itens para pegar (71-76)
 for f = 0 to 5
-  with TpObjeto(f + 71)
+  with GObjectData(f + 71)
     .Tipo = 10
     .Img  = f + 106
     .Item = f + 1
     end with
 next
-
-'Bombas em Uso (77-78: Pequena; 79-80: Grande):
+' Bombas em Uso (77-78: Pequena; 79-80: Grande)
 for f = 0 to 3
-  with TpObjeto(f + 77)
+  with GObjectData(f + 77)
     .Tipo = 11
     .Img  = f + 112
     .Item = 0
   end with
 next
-
-'Suporte em Uso (81):
-with TpObjeto(81)
+' Suporte em Uso (81)
+with GObjectData(81)
   .Tipo = 12
   .Img  = 236
   .Item = 0
 end with
-
-'Espetos (82-84)
+' Espetos (82-84)
 for f = 0 to 2
-  with TpObjeto(f + 82)
+  with GObjectData(f + 82)
     .tipo = 13
-    .img  = 233 + f
+    .Img  = 233 + f
     .item = 0
   end with
 next
-
-LoadBar 20
-sleep 2, 1
-
-'Pontos por tesouro
-PontoTesouro(7)  = 1
-PontoTesouro(8)  = 2
-PontoTesouro(9)  = 3
-PontoTesouro(10) = 4
-PontoTesouro(11) = 5
-PontoTesouro(12) = 6
-PontoTesouro(13) = 7
-PontoTesouro(14) = 8
-PontoTesouro(15) = 9
+DrawProgressBar 20
+' Pontos por tesouro
+PontoTesouro(07) = 01
+PontoTesouro(08) = 02
+PontoTesouro(09) = 03
+PontoTesouro(10) = 04
+PontoTesouro(11) = 05
+PontoTesouro(12) = 06
+PontoTesouro(13) = 07
+PontoTesouro(14) = 08
+PontoTesouro(15) = 09
 PontoTesouro(16) = 10
 PontoTesouro(17) = 12
 PontoTesouro(18) = 15
@@ -586,355 +541,311 @@ PontoTesouro(19) = 17
 PontoTesouro(20) = 20
 PontoTesouro(21) = 25
 PontoTesouro(22) = 30
-
+'
 if not InitSoundSystem then
   cls
-  draw string (10, 20), TXT(1)
-  draw string (10, 50), TXT(50)
+  draw string (10, 20), GText(1)
+  draw string (10, 50), GText(50)
   LimpaTeclado
   end 1
 end if
-
-LoadBar 25
-sleep 2, 1
-
-Grafx = imagecreate(800, 440, 0, 32)
-sleep 10, 1
-GBitmaps(275) = imagecreate(448, 444, rgba(0, 0, 0, 255), 32)
+DrawProgressBar 25
+'
+dim LBLoadRes as integer
+dim as any ptr LBitmap, LBitmap2
+LBitmap = imagecreate(800, 440, 0, 32)
+GBitmap(275) = imagecreate(448, 444, rgba(0, 0, 0, 255), 32)
 for f = 0 to 79
-  circle GBitmaps(275), (222, 222), 144 - f, rgba(0, 0, 0, 255 - f * 3.17),,,, f
+  circle GBitmap(275), (222, 222), 144 - f, rgba(0, 0, 0, 255 - f * 3.17),,,, f
 next
-circle GBitmaps(275), (222, 222), 64, rgba(0, 0, 0, 0),,,, f
-Carregou = bload("res/Sprites.bmp", Grafx)
-
-'Posições das figuras no arquivo de imagem
-'0-184 = fundos, frentes, objetos, bonecos...
+circle GBitmap(275), (222, 222), 64, rgba(0, 0, 0, 0),,,, f
+LBLoadRes = bload("res/Sprites.bmp", LBitmap)
+if LBLoadRes <> 0 then DEBUG_LOG("LBLoadRes " & str(LBLoadRes))
+' Posições das figuras no arquivo de imagem
+' 0-184 = fundos, frentes, objetos, bonecos...
 for f = 0 to 184
-  GBitmaps(f) = imagecreate(32, 32, 0, 32)
-  put GBitmaps(f), (0,0), GrafX, ((f mod 25) * 32, int(f / 25) * 32) - step(31, 31), pset
+  GBitmap(f) = imagecreate(32, 32, 0, 32)
+  put GBitmap(f), (0, 0), LBitmap, ((f mod 25) * 32, (f \ 25) * 32)-step(31, 31), pset
 next
-LoadBar 30
-
-'185-196 = Explosoes
+DrawProgressBar 30
+' 185-196 = Explosoes
 for f = 0 to 11
-  GBitmaps(185 + f) = imagecreate(32, 32, 0, 32)
-  'transparência gradativa
-  for G = 0 to 31
-    for H = 0 to 31
-      CorRGB = point(320 + F * 32 + G, 224 + H, GrafX)
+  GBitmap(185 + f) = imagecreate(32, 32, 0, 32)
+  ' Transparência gradativa
+  for g = 0 to 31
+    for h = 0 to 31
+      CorRGB = point(320 + f * 32 + g, 224 + h, LBitmap)
       if CorRGB = Magenta then
-        pset GBitmaps(185 + F), (G, H), rgba(255, 0, 255, 0)
+        pset GBitmap(185 + f), (g, h), rgba(255, 0, 255, 0)
       else
-        pset GBitmaps(185 + F), (G, H), rgba(rgba_R(CorRGB), rgba_G(CorRGB), rgba_B(CorRGB), 255 - f * 21)
+        pset GBitmap(185 + f), (g, h), rgba(rgba_R(CorRGB), rgba_G(CorRGB), rgba_B(CorRGB), 255 - f * 21)
       end if
     next
   next
 next
-
-'197 - 208 = Algarismos (fundo opaco)
+' 197 - 208 = Algarismos (fundo opaco)
 for f = 0 to 11
-  GBitmaps(197 + f) = imagecreate(10, 15, 0, 32)
-  put GBitmaps(197 + f), (0,0), GrafX, (f * 10 + 672, 256) - step(9, 14), pset
+  GBitmap(197 + f) = imagecreate(10, 15, 0, 32)
+  put GBitmap(197 + f), (0, 0), LBitmap, (f * 10 + 672, 256)-step(9, 14), pset
 next
-
-LoadBar 35
-
-'209 = Medidor do oxigênio
-GBitmaps(209) = imagecreate(100, 16, 0, 32)
-put GBitmaps(209), (0,0), GrafX, (672, 272) - (771, 287), pset
-'210 = Barra de informações - (210)
-GBitmaps(210) = imagecreate(800, 56, 0, 32)
-put GBitmaps(210), (0,0), GrafX, (0, 352) - (799, 407), pset
-'211 = Logo do Jogo (211)
-GBitmaps(211) = imagecreate(220, 96, 0, 32)
-put GBitmaps(211), (0,0), GrafX, (0, 256) - (219, 351), pset
-'212 = Game over (212)
-GBitmaps(212) = imagecreate(128, 64, 0, 32)
-put GBitmaps(212), (0,0), GrafX, (672, 288) - (799, 351), pset
-
-'213 - 237 = Agua (213 a 237); espetos (233-235); suporte em uso (236); fundo para água (237)
+DrawProgressBar 35
+' 209 = Medidor do oxigênio
+GBitmap(209) = imagecreate(100, 16, 0, 32)
+put GBitmap(209), (0, 0), LBitmap, (672, 272)-(771, 287), pset
+' 210 = Barra de informações - (210)
+GBitmap(210) = imagecreate(800, 56, 0, 32)
+put GBitmap(210), (0, 0), LBitmap, (0, 352)-(799, 407), pset
+' 211 = Logo do jogo (211)
+GBitmap(211) = imagecreate(220, 96, 0, 32)
+put GBitmap(211), (0, 0), LBitmap, (0, 256)-(219, 351), pset
+' 212 = Game over (212)
+GBitmap(212) = imagecreate(128, 64, 0, 32)
+put GBitmap(212), (0, 0), LBitmap, (672, 288)-(799, 351), pset
+' 213 - 237 = Agua (213 a 237); espetos (233-235); suporte em uso (236); fundo para água (237)
 for f = 0 to 24
-  GBitmaps(213 + f) = imagecreate(32, 32, 0, 32)
-  put GBitmaps(213 + f), (0,0), GrafX, (F * 32, 408) - step(31, 31), pset
+  GBitmap(213 + f) = imagecreate(32, 32, 0, 32)
+  put GBitmap(213 + f), (0, 0), LBitmap, (f * 32, 408)-step(31, 31), pset
 next
-
-'238 = Setinhas: vermelha, laranja, amarela, verde e azul
-GBitmaps(238) = imagecreate(58, 15, 0, 32)
-put GBitmaps(238), (0, 0), Grafx, (7, 385) - (64, 399), pset
-
-LoadBar 40
-
-'239 - 246 = Números (esmaecendo)
-for F = 0 to 7
-  GBitmaps(239 + f) = imagecreate(90, 15, 0, 32)
-  for H = 0 to 89
-    for I = 0 to 14
-      CorRGB = (point(288 + H, 320 + I, GrafX) and 255) * (1 - F * .1)
-      pset GBitmaps(239 + f), (H, I), rgba(255, 255, 0, CorRGB)
+' 238 = Setinhas: vermelha, laranja, amarela, verde e azul
+GBitmap(238) = imagecreate(58, 15, 0, 32)
+put GBitmap(238), (0, 0), LBitmap, (7, 385)-(64, 399), pset
+DrawProgressBar 40
+' 239 - 246 = Números (esmaecendo)
+for f = 0 to 7
+  GBitmap(239 + f) = imagecreate(90, 15, 0, 32)
+  for h = 0 to 89
+    for i = 0 to 14
+      CorRGB = (point(288 + h, 320 + i, LBitmap) and 255) * (1 - f * .1)
+      pset GBitmap(239 + f), (h, i), rgba(255, 255, 0, CorRGB)
     next
   next
 next
-
-LoadBar 45
-
-'247 = Fonte (LETRAS)
-
-Grafx2 = imagecreate(LargArqFonte, 23, 0, 32)
-GBitmaps(247)= imagecreate(LargArqFonte, 22, 0, 32)
-Carregou = bload("res/Font.bmp", Grafx2)
-
+DrawProgressBar 45
+' 247 = Fonte
+LBitmap2 = imagecreate(LargArqFonte, 23, 0, 32)
+GBitmap(247) = imagecreate(LargArqFonte, 22, 0, 32)
+LBLoadRes = bload("res/Font.bmp", LBitmap2)
+if LBLoadRes <> 0 then DEBUG_LOG("LBLoadRes " & str(LBLoadRes))
 h = 0
 PosLetra(0, 0) = 0
 for g = 0 to LargArqFonte - 1
   for f = 0 to 21
-    CorRGB = point(g, f, grafx2) and 255
-    pset GBitmaps(247), (g, f), rgba(255, 255, 255, CorRGB)
+    CorRGB = point(g, f, LBitmap2) and 255
+    pset GBitmap(247), (g, f), rgba(255, 255, 255, CorRGB)
   next
-  if (point(g, 22, Grafx2) and 1) = 0 then
-    PosLetra(h, 1)= G
+  if (point(g, 22, LBitmap2) and 1) = 0 then
+    PosLetra(h, 1) = g
     h += 1
     if g < LargArqFonte - 1 then PosLetra(h, 0) = g + 1
   end if
 next
-
-LoadBar 50
-
-'248 - 251 = Quadros para mensagem
+imagedestroy LBitmap2
+DrawProgressBar 50
+' 248 - 251 = Quadros para mensagem
 for h = 0 to 3
-  GBitmaps(248 + h) = imagecreate(64, 64, 0, 32)
-  for F = 0 to 63
-    for G = 0 to 63
-      CorRGB = point(288 + h * 64 + F, 256 + G, GrafX)
+  GBitmap(248 + h) = imagecreate(64, 64, 0, 32)
+  for f = 0 to 63
+    for g = 0 to 63
+      CorRGB = point(288 + h * 64 + f, 256 + g, LBitmap)
       if CorRGB = Magenta then
-        pset GBitmaps(248 + h), (F, G), rgba(255, 0, 255, 0)
+        pset GBitmap(248 + h), (f, g), rgba(255, 0, 255, 0)
       else
-        pset GBitmaps(248 + h), (F, G), rgba(rgba_R(CorRGB), rgba_G(CorRGB), rgba_B(CorRGB), 192)
+        pset GBitmap(248 + h), (f, g), rgba(rgba_R(CorRGB), rgba_G(CorRGB), rgba_B(CorRGB), 192)
       end if
     next
   next
 next
-
-LoadBar 55
-
-'252 = FreeBasic's HORSE
-GBitmaps(252) = imagecreate(59, 47, 0, 32)
-put GBitmaps(252), (0, 0), grafx, (225,256) - (283,302), pset
-
-'Objetos de frente
-for H = 25 to 36
-  for G = 0 to 31
-    for F = 0 to 31
-      CorRGB = point(F, G, GBitmaps(H))
+DrawProgressBar 55
+' 252 = FreeBasic's HORSE
+GBitmap(252) = imagecreate(59, 47, 0, 32)
+put GBitmap(252), (0, 0), LBitmap, (225,256)-(283,302), pset
+' Objetos de frente
+for h = 25 to 36
+  for g = 0 to 31
+    for f = 0 to 31
+      CorRGB = point(f, g, GBitmap(h))
       if CorRGB = Magenta then
-        pset GBitmaps(H), (F, G), rgba(255, 0, 255, 0)
+        pset GBitmap(h), (f, g), rgba(255, 0, 255, 0)
       else
-        if H < 32 then
-          pset GBitmaps(H), (F, G), rgba(rgba_R(CorRGB), rgba_G(CorRGB), rgba_B(CorRGB), 191)
+        if h < 32 then
+          pset GBitmap(h), (f, g), rgba(rgba_R(CorRGB), rgba_G(CorRGB), rgba_B(CorRGB), 191)
         else
-          pset GBitmaps(H), (F, G), rgba(rgba_R(CorRGB), rgba_G(CorRGB), rgba_B(CorRGB), 127)
+          pset GBitmap(h), (f, g), rgba(rgba_R(CorRGB), rgba_G(CorRGB), rgba_B(CorRGB), 127)
         end if
       end if
     next
   next
 next
-
-LoadBar 60
-
+DrawProgressBar 60
 for h = 0 to 5
-  GBitmaps(253 + h) = imagecreate(42, 48, 0, 32)
-  put GBitmaps(253 + H), (0, 0), GrafX, (544 + (h mod 3) * 42, 256 + (int(h/3) * 48)) - step(41, 47), pset
+  GBitmap(253 + h) = imagecreate(42, 48, 0, 32)
+  put GBitmap(253 + h), (0, 0), LBitmap, (544 + (h mod 3) * 42, 256 + (int(h / 3) * 48))-step(41, 47), pset
 next
-
-for F= 259 to 273
-  GBitmaps(F) = imagecreate(32, 32, 0, 32)
+for f= 259 to 273
+  GBitmap(f) = imagecreate(32, 32, 0, 32)
 next
-
-LoadBar 65
-
+DrawProgressBar 65
 for f = 0 to 4
-  put GBitmaps(264 + F), (0, 0), GrafX, (378 + F * 32, 320) - step(31, 31), pset
+  put GBitmap(264 + f), (0, 0), LBitmap, (378 + f * 32, 320)-step(31, 31), pset
   for g = 0 to 31
-    put GBitmaps(269 + f), (g, 0), GrafX, (409 + F * 32 - G, 320) - step(0, 31), pset
+    put GBitmap(269 + f), (g, 0), LBitmap, (409 + f * 32 - g, 320)-step(0, 31), pset
     for h = 0 to 31
-      pset GBitmaps(259 + F), (31 - H, G), point(378 + F * 32 + G, 320 + H, GrafX)
+      pset GBitmap(259 + f), (31 - h, g), point(378 + f * 32 + g, 320 + h, LBitmap)
     next
   next
 next
-
-LoadBar 70
-
-'Números pequenos para o editor
-GBitmaps(274) = imagecreate(60, 8, 0, 32)
-put GBitmaps(274), (0, 0), GrafX, (288, 335) - (347, 342), pset
-
-imagedestroy GrafX
-
-LoadBar 75
-
-'Imagens do Menu
-GBitmaps(276) = imagecreate(630, 128, 0, 32)
-GrafX = imagecreate(723, 128, 0, 32)
-Carregou = bload("res/Menu.bmp", GrafX)
-put GBitmaps(276), (0,0), GrafX, (0, 0) - (629, 127), pset
-GBitmaps(277) = imagecreate(96, 96, 0, 32)
-
-'Imagens do menu do editor
-GBitmaps(278) = imagecreate(73, 19, rgba(255, 0, 255, 0), 32)
+DrawProgressBar 70
+' Números pequenos para o editor
+GBitmap(274) = imagecreate(60, 8, 0, 32)
+put GBitmap(274), (0, 0), LBitmap, (288, 335)-(347, 342), pset
+imagedestroy LBitmap
+' Imagens do Menu
+GBitmap(276) = imagecreate(630, 128, 0, 32)
+LBitmap = imagecreate(723, 128, 0, 32)
+LBLoadRes = bload("res/Menu.bmp", LBitmap)
+if LBLoadRes <> 0 then  DEBUG_LOG("LBLoadRes " & str(LBLoadRes))
+put GBitmap(276), (0,0), LBitmap, (0, 0)-(629, 127), pset
+GBitmap(277) = imagecreate(96, 96, 0, 32)
+' Imagens do menu do editor
+GBitmap(278) = imagecreate(73, 19, rgba(255, 0, 255, 0), 32)
 for f = 0 to 3
-  line GBitmaps(278), (3 - f, f) - (69 +  f, 18 - f), rgba(0, 0, 0, 255), b
+  line GBitmap(278), (3 - f, f)-(69 +  f, 18 - f), rgba(0, 0, 0, 255), b
 next
-
-LoadBar 80
-
-line GBitmaps(278), (4, 4) - (68, 14), rgba(0, 0, 0, 64), Bf
-GBitmaps(279) = imagecreate(611, 21, rgba(255, 0, 255, 0), 32)
-line GBitmaps(279), (0,0) - (22, 20), rgb(128, 128, 128), b
-line GBitmaps(279), (23,0) - (45, 20), rgb(128, 128, 128), b
-line GBitmaps(279), (46,0) - (564, 20), rgb(128, 128, 128), b
-line GBitmaps(279), (565,0) - (587, 20), rgb(128, 128, 128), b
-line GBitmaps(279), (588,0) - (610, 20), rgb(128, 128, 128), b
-put GBitmaps(279), (3, 2), GrafX, (688, 66) - (703, 82), pset
-put GBitmaps(279), (30, 2), GrafX, (695, 66) - (703, 82), pset
-put GBitmaps(279), (572, 2), GrafX, (677, 66) - (685, 82), pset
-put GBitmaps(279), (592, 2), GrafX, (677, 66) - (692, 82), pset
-line GBitmaps(279), (48, 4) - (562, 17), rgba(255, 255, 255, 255), B
-line GBitmaps(279), (48, 4) - (561, 16), rgba(128, 128, 128, 255), B
-line GBitmaps(279), (49, 5) - (52, 16), rgba(255, 255, 0, 255), BF
-line GBitmaps(279), (53, 5) - (152, 16), rgba(80, 160, 160, 255), BF
-line GBitmaps(279), (153, 5) - (208, 16), rgba(185, 106, 106, 255), BF
-line GBitmaps(279), (209, 5) - (561, 16), rgba(100, 180, 100, 255), BF
-
-LoadBar 85
-
-GBitmaps(280) = imagecreate (187, 56, rgba(255, 0, 255, 0), 32)
-for F = 0 to 1
+DrawProgressBar 75
+line GBitmap(278), (4, 4)-(68, 14), rgba(0, 0, 0, 64), Bf
+GBitmap(279) = imagecreate(611, 21, rgba(255, 0, 255, 0), 32)
+line GBitmap(279), (0,0)-(22, 20), rgb(128, 128, 128), b
+line GBitmap(279), (23,0)-(45, 20), rgb(128, 128, 128), b
+line GBitmap(279), (46,0)-(564, 20), rgb(128, 128, 128), b
+line GBitmap(279), (565,0)-(587, 20), rgb(128, 128, 128), b
+line GBitmap(279), (588,0)-(610, 20), rgb(128, 128, 128), b
+put GBitmap(279), (3, 2), LBitmap, (688, 66)-(703, 82), pset
+put GBitmap(279), (30, 2), LBitmap, (695, 66)-(703, 82), pset
+put GBitmap(279), (572, 2), LBitmap, (677, 66)-(685, 82), pset
+put GBitmap(279), (592, 2), LBitmap, (677, 66)-(692, 82), pset
+line GBitmap(279), (48, 4)-(562, 17), rgba(255, 255, 255, 255), B
+line GBitmap(279), (48, 4)-(561, 16), rgba(128, 128, 128, 255), B
+line GBitmap(279), (49, 5)-(52, 16), rgba(255, 255, 0, 255), BF
+line GBitmap(279), (53, 5)-(152, 16), rgba(80, 160, 160, 255), BF
+line GBitmap(279), (153, 5)-(208, 16), rgba(185, 106, 106, 255), BF
+line GBitmap(279), (209, 5)-(561, 16), rgba(100, 180, 100, 255), BF
+DrawProgressBar 80
+GBitmap(280) = imagecreate (187, 56, rgba(255, 0, 255, 0), 32)
+for f = 0 to 1
   for g = 0 to 1
-    line GBitmaps(280), (g * 27, F * 28) - step (26, 27), rgba(96, 96, 96, 255), B
-    put GBitmaps(280), (2 + g * 27, 3 + F * 28), GrafX, (631 + G * 23, f * 23)- step (22, 22), pset
+    line GBitmap(280), (g * 27, f * 28)-step(26, 27), rgba(96, 96, 96, 255), B
+    put GBitmap(280), (2 + g * 27, 3 + f * 28), LBitmap, (631 + g * 23, f * 23)- step(22, 22), pset
   next
   for g = 0 to 2
-    line GBitmaps(280), (106 + g * 27, F * 28) - step (26, 27), rgba(96, 96, 96, 255), B
-    put GBitmaps(280), (108 + g * 27, 3 + F * 28), GrafX, (631 + F * 23, 46 + G * 23)- step (22, 22), pset
+    line GBitmap(280), (106 + g * 27, f * 28)-step(26, 27), rgba(96, 96, 96, 255), B
+    put GBitmap(280), (108 + g * 27, 3 + f * 28), LBitmap, (631 + f * 23, 46 + g * 23)- step(22, 22), pset
   next
 next
-line GBitmaps(280), (54, 0) - step (51, 55), rgba(0, 0, 0, 255), B
-line GBitmaps(280), (55, 0) - step (49, 55), rgba(128, 128, 128, 255), B
-put GBitmaps(280), (57, 3), Grafx, (677, 0) - (722, 49), pset
-GBitmaps(281) = imagecreate (46, 16, rgba(192, 192, 192, 255), 32)
-put GBitmaps(281), (0, 0), grafX, (677, 50) - (722, 65), pset
-
-imagedestroy GrafX
-LoadBar 90
-
+line GBitmap(280), (54, 0)-step(51, 55), rgba(0, 0, 0, 255), B
+line GBitmap(280), (55, 0)-step(49, 55), rgba(128, 128, 128, 255), B
+put GBitmap(280), (57, 3), LBitmap, (677, 0)-(722, 49), pset
+GBitmap(281) = imagecreate (46, 16, rgba(192, 192, 192, 255), 32)
+put GBitmap(281), (0, 0), LBitmap, (677, 50)-(722, 65), pset
+imagedestroy LBitmap
+DrawProgressBar 85
 'Highlight do menu
-sleep 10, 1
-for F=0 to 15
-  circle GBitmaps(277), (f + 15, f + 15), 15, rgba(64, 255, 64, f * 16), , , , f
-  circle GBitmaps(277), (f + 15, 80 - f), 15, rgba(64, 255, 64, f * 16), , , , f
-  circle GBitmaps(277), (80 - f, f + 15), 15, rgba(64, 255, 64, f * 16), , , , f
-  circle GBitmaps(277), (80 - f, 80 - f), 15, rgba(64, 255, 64, f * 16), , , , f
-  line GBitmaps(277), (16 + f, f) - (79 - f, 95 - f), rgba(64, 255, 64, f * 16), bf
-  line GBitmaps(277), (f , 16 + f) - (95 - f, 79 - f), rgba(64, 255, 64, f * 16), bf
+for f = 0 to 15
+  circle GBitmap(277), (f + 15, f + 15), 15, rgba(64, 255, 64, f * 16),,,, f
+  circle GBitmap(277), (f + 15, 80 - f), 15, rgba(64, 255, 64, f * 16),,,, f
+  circle GBitmap(277), (80 - f, f + 15), 15, rgba(64, 255, 64, f * 16),,,, f
+  circle GBitmap(277), (80 - f, 80 - f), 15, rgba(64, 255, 64, f * 16),,,, f
+  line GBitmap(277), (16 + f, f)-(79 - f, 95 - f), rgba(64, 255, 64, f * 16), bf
+  line GBitmap(277), (f , 16 + f)-(95 - f, 79 - f), rgba(64, 255, 64, f * 16), bf
 next
-
-LoadBar 95
+DrawProgressBar 90
+sleep 5, 1
 LoadSounds
-LeMinaIn 0, 1
-LoadBar 100
-sleep 2, 1
+LoadMineFromFile 0, 1
+DrawProgressBar 95
 
-Jogo.NumVidas = 2
+GJogo.NumVidas = 2
+
 if fileexists("config.min") then
   open "config.min" for input as #1
-  input #1, Jogo.Volume
-  input #1, Jogo.MaxAlcancada
-  input #1, IAtual
+  input #1, GJogo.Volume
+  input #1, GJogo.MaxAlcancada
+  input #1, GCurrLangName
   close #1
 else
-  Jogo.Volume   = 64
-  Jogo.MaxAlcancada = 1
-  IAtual = DefaultLanguage
+  GJogo.Volume   = 64
+  GJogo.MaxAlcancada = 1
+  GCurrLangName = DefaultLanguage
 end if
-LeTXT (IAtual)
+LoadLanguage(GCurrLangName)
+DrawProgressBar 100
 
-if Jogo.MaxAlcancada < 1 then Jogo.MaxAlcancada = 1
-if Jogo.Volume < 0 or jogo.Volume > 127 then Jogo. Volume = 64
+if GJogo.MaxAlcancada < 1 then GJogo.MaxAlcancada = 1
+if GJogo.Volume < 0 or GJogo.Volume > 127 then GJogo. Volume = 64
+'midiOutSetVolume(0, (GJogo.volume Shl 9) or (GJogo.volume Shl 1))
 
-'midiOutSetVolume(0, (jogo.volume Shl 9) or (jogo.volume Shl 1))
-
-'FPS / velocidade
-Jogo.Passos = 8
-Jogo.DelayMSec = 33
-Jogo.TamanhoPasso = 4   'pixels
-'Le recordes
+' FPS / velocidade
+GJogo.Passos = 8
+GJogo.DelayMSec = 33
+GJogo.TamanhoPasso = 4
+' Le recordes
 LeTopDez
-ConfirmDel = 0
-'Inicia parâmetros
+' Inicia parâmetros
 IniciaJogo
 IniciaVida
 LimpaMina
 MudaStatus NoMenu
 TmpSleep = 25
-sleep 20, 1
 Quadros = 0
 UltQuadros = 0
-timer1 = Clock
+GTimer1 = Clock
 cls
 screenset 0, 1
-ScrAtiva=0
+ScrAtiva = 0
 
-'Chama o ciclo Principal
 Joga
-'Encerra o Programa
 
-'Libera canais de som e memória alocada para imagens
 FreeSound
 for f = 0 to 277
-  imagedestroy GBitmaps(f)
+  imagedestroy GBitmap(f)
 next
 
 end
 
-'Procedimentos e Funções
-
-'Desenha o fundo de listras coloridas dos menus, pausa, etc.
-
+' Desenha o fundo de listras coloridas dos menus, pausa, etc.
 sub DesFundo
-dim F as integer
-  cRed = (Cred + 2) mod 256
-  for F = 0 to 119
-    CRed2 = (cred + f) mod 256
-    if CRed2 > 127 then CRed2 = 255 - cred2
-    line (0, f * 5) - (799, f * 5 + 9), rgb(cred2 * VRed, cred2 * VGreen, Cred2 * VBlue), bf
+  dim LGrad as integer
+  GGrad = (GGrad + 2) mod 256
+  for f as integer = 0 to 119
+    LGrad = (GGrad + f) mod 256
+    if LGrad > 127 then LGrad = 255 - LGrad
+    line (0, f * 5)-(799, f * 5 + 9), rgb(LGrad * GRed, LGrad * GGreen, LGrad * GBlue), bf
   next
 end sub
 
-'Desenha a barra indicando a carga do programa
-
-sub LoadBar (perc as integer)
-  line (25, 525) - (25 + perc * 7.51, 549), rgb(127, 127, 255), bf
-  sleep 2, 1
+' Desenha a barra indicando a carga do programa
+sub DrawProgressBar(APercent as integer)
+  line (25, 525)-(25 + APercent * 7.51, 549), rgb(127, 127, 255), bf
+  sleep 10, 1
 end sub
 
-'Desenha a tela
-
+' Desenha a tela
 sub Desenha
-  'Declaração de variáveis locais
-  dim as integer XR, YR, X1, Y1, X1R, Y1R, BonecoR, Agua0, DF1, DF2, DG1, DG2, FigPt, F, G, H, I
+  ' Declaração de variáveis locais
+  dim as integer XR, YR, X1, Y1, X1R, Y1R, BonecoR, Agua0, DF1, DF2, DG1, DG2, FigPt, f, g, h, I
   dim as integer TRX, TRY, TRXa, TRYa, Explodindo
-  'Verifica se há explosão, para tremer a imagem
-  for f=0 to 10
+  ' Verifica se há explosão, para tremer a imagem
+  for f = 0 to 10
     if explosao(f).tipo > 0 and explosao(f).tempo < 10 then explodindo = 1
   next
-  'Calcula que parte da tela deve ser mostrada
-  if (Jogo.Status = ModoMapa) or (jogo.status = Top10) or (Jogo.Status = Editor) then
+  ' Calcula que parte da tela deve ser mostrada
+  if (GJogo.Status = ModoMapa) or (GJogo.status = Top10) or (GJogo.Status = Editor) then
     TRX  = MapX
     TRY  = MapY
     TRXa = 0
     TRYa = 0
   else
-    with Boneco
-      'Calcula o X inicial da tela
+    with GBoneco
+      ' Calcula o X inicial da tela
       if Mina.Larg < 25 or .X < 12 then
         TRX  = 0
         TRXa = 0
@@ -943,10 +854,10 @@ sub Desenha
         TRXa = 0
       elseif .DirAtual = 1 then
         TRX  = .X - 12
-        TRXa = -.Passo * Jogo.TamanhoPasso
+        TRXa = -.Passo * GJogo.TamanhoPasso
       elseif .DirAtual = 2 then
         TRX  = .X - 13
-        TRXa = (.Passo - Jogo.Passos) * Jogo.TamanhoPasso
+        TRXa = (.Passo - GJogo.Passos) * GJogo.TamanhoPasso
       else
         TRX  = .x - 12
         TRXa = 0
@@ -956,7 +867,7 @@ sub Desenha
         TRXa = 0
       end if
       if .x = Mina.Larg - 12 and .DirAtual = 1 then TRXa = 0
-      'Calcula o Y inicial da tela
+      ' Calcula o Y inicial da tela
       if Mina.ALT < 17 or .Y < 8 then
         TRY  = 0
         TRYa = 0
@@ -965,10 +876,10 @@ sub Desenha
         TRYa = 0
       elseif .DirAtual > 3 then
         TRY  = .Y - 8
-        TRYa = -.Passo * Jogo.TamanhoPasso
+        TRYa = -.Passo * GJogo.TamanhoPasso
       elseif .DirAtual = 3 then
         TRY  = .Y - 9
-        TRYa = (.Passo - Jogo.Passos) * Jogo.TamanhoPasso
+        TRYa = (.Passo - GJogo.Passos) * GJogo.TamanhoPasso
       else
         TRY  = .Y - 8
         TRYa = 0
@@ -980,156 +891,156 @@ sub Desenha
       if .Y = Mina.ALT - 8 and .DirAtual > 3 then TRYa = 0
     end with
   end if
-  if (mina.noturno = 0) or (Jogo.Status = Editor) then
+  if (mina.noturno = 0) or (GJogo.Status = Editor) then
     df1 = 0
     df2 = 25
     dg1 = 0
     dg2 = 17
   else
-    'Limpa tela (desnecessário se não for no modo noturno, pois toda a tela é redesenhada)
+    ' Limpa tela (desnecessário se não for no modo noturno, pois toda a tela é redesenhada)
     cls
-    df1 = boneco.x - trx - 5
-    df2 = boneco.x - trx + 5
-    dg1 = boneco.y - try - 5
-    dg2 = boneco.y - try + 5
+    df1 = GBoneco.x - trx - 5
+    df2 = GBoneco.x - trx + 5
+    dg1 = GBoneco.y - try - 5
+    dg2 = GBoneco.y - try + 5
     if df1 < 0  then df1 = 0
     if df2 > 25 then df2 = 25
     if dg1 < 0  then dg1 = 0
     if dg2 > 17 then dg2 = 17
   end if
-  'Grupo de imagens do boneco
-  if Boneco.NoOxigenio = 0 then
-    BonecoR = Jogo.Player * 46
+  ' Grupo de imagens do boneco
+  if GBoneco.NoOxigenio = 0 then
+    BonecoR = GJogo.Player * 46
   else
     BonecoR = 23
   end if
   if Explodindo > 0 then
     TRXA = trxa + rnd * 11 - 5
     trya = TRYA + rnd * 11 - 5
-  elseif jogo.status = VenceuJogo then
+  elseif GJogo.status = VenceuJogo then
     TRXA = trxa + rnd * 3 - 1
     trya = TRYA + rnd * 3 - 1
   end if
-  'Inicia o desenho
-  'Desenha imagens do fundo (layer 0, pset)
+  ' Inicia o desenho
+  ' Desenha imagens do fundo (layer 0, pset)
   for f = df1 to df2
     for g = dg1 to dg2
       if fundo (TRX + f, TRY + g) > 0 then
-        put (TRXa + f * 32, TRYa + g * 32), GBitmaps(fundo (TRX + f, TRY + g)),pset
+        put (TRXa + f * 32, TRYa + g * 32), GBitmap(fundo (TRX + f, TRY + g)),pset
       else
-        put (TRXa + F * 32, TRYa + g * 32), GBitmaps(237), pset
+        put (TRXa + f * 32, TRYa + g * 32), GBitmap(237), pset
       end if
     next
   next
-  'Desenha os Objetos sobre o fundo (layer 1, trans)
-  if (Jogo.Status <> Editor) or (EdShow =1 or EdShow = 2) then
+  ' Desenha os Objetos sobre o fundo (layer 1, trans)
+  if (GJogo.Status <> Editor) or (EdShow =1 or EdShow = 2) then
     for f = df1 to df2
       for g = dg1 to dg2
         XR = 0
         YR = 0
-        'Calcula posição de objeto caindo
+        ' Calcula posição de objeto caindo
         if objeto (TRX + f,TRY + g).caindo = 1 then
-          YR = Objeto(TRX + f,TRY + g).Passo * Jogo. TamanhoPasso
+          YR = Objeto(TRX + f,TRY + g).Passo * GJogo.TamanhoPasso
         else
-          'Calcula posição de objeto empurrado
-          select case objeto (TRX + f,TRY + g).Empurrando
+          ' Calcula posição de objeto empurrado
+          select case objeto(TRX + f,TRY + g).Empurrando
           case 1
-            XR = Objeto (TRX + f,TRY + g).Passo * Jogo. TamanhoPasso
+            XR = Objeto(TRX + f,TRY + g).Passo * GJogo.TamanhoPasso
           case 2
-            XR = -Objeto (TRX + f,TRY + g).Passo * Jogo. TamanhoPasso
+            XR = -Objeto(TRX + f,TRY + g).Passo * GJogo.TamanhoPasso
           end select
         end if
-        'Desenha o objeto na sua posição
-        put (TRXa + f * 32 + XR, TRYa + g * 32 + YR), GBitmaps(TpObjeto (Objeto (TRX + F,TRY + G).tp).Img), trans
+        ' Desenha o objeto na sua posição
+        put (TRXa + f * 32 + XR, TRYa + g * 32 + YR), GBitmap(GObjectData (Objeto (TRX + f,TRY + g).tp).Img), trans
       next
     next
   end if
-  'Desenha o boneco (layer 1, trans)
-  if Jogo.Status <> VenceuJogo and Jogo.Status <> Top10 and JOGO.STATUS <> GameOver and BONECO.MORREU = 0 then
-    'Calcula Posição
-    with Boneco
-      'Escolhe imagem
-      'Picareta
-      if jogo.Status = Editor then
+  ' Desenha o boneco (layer 1, trans)
+  if GJogo.Status <> VenceuJogo and GJogo.Status <> Top10 and GJogo.STATUS <> GameOver and GBoneco.MORREU = 0 then
+    ' Calcula Posição
+    with GBoneco
+      ' Escolhe imagem
+      ' Picareta
+      if GJogo.Status = Editor then
         .Img = Parado (0)
         .ImgX = .x * 32
         .ImgY = .y * 32
       else
         if .NaPicareta > 0 then
           .Img = Usando(0, .NaPicareta mod 2) + BonecoR
-          put (TRXa + .ImgX - (TRX * 32), TRYa + .ImgY - (TRY * 32)+ 32), GBitmaps(259 + int((.NaPicareta / Jogo.Passos) * 2.35)), trans
-        'Furadeira
+          put (TRXa + .ImgX - (TRX * 32), TRYa + .ImgY - (TRY * 32)+ 32), GBitmap(259 + int((.NaPicareta / GJogo.Passos) * 2.35)), trans
+        ' Furadeira
         elseif .NaFuradeira>0 then
-          .img = Usando (.DirFuradeira, .NaFuradeira mod 2) + BonecoR
+          .Img = Usando (.DirFuradeira, .NaFuradeira mod 2) + BonecoR
           if .DirFuradeira = 1 then
-            put (TRXa + .ImgX - (TRX * 32) + 32, TRYa + .ImgY - (TRY * 32)), GBitmaps(264 + int((.NaFuradeira / Jogo.Passos) * 2.35)), trans
+            put (TRXa + .ImgX - (TRX * 32) + 32, TRYa + .ImgY - (TRY * 32)), GBitmap(264 + int((.NaFuradeira / GJogo.Passos) * 2.35)), trans
           else
-            put (TRXa + .ImgX - (TRX * 32) - 32, TRYa + .ImgY - (TRY * 32)), GBitmaps(269 + int((.NaFuradeira / Jogo.Passos) * 2.35)), trans
+            put (TRXa + .ImgX - (TRX * 32) - 32, TRYa + .ImgY - (TRY * 32)), GBitmap(269 + int((.NaFuradeira / GJogo.Passos) * 2.35)), trans
           end if
-        'Parado
+        ' Parado
         elseif .DirAtual = 0 then
-          .img = Parado (.UltDir) + BonecoR
-        'Movendo-se
+          .Img = Parado (.UltDir) + BonecoR
+        ' Movendo-se
         else
-          .img = Movendo (.diratual + (.empurrando * 5) - 1, .passo mod 4) + BonecoR
+          .Img = Movendo (.diratual + (.empurrando * 5) - 1, .passo mod 4) + BonecoR
         end if
-        'Ajusta posição conforme movimento
+        ' Ajusta posição conforme movimento
         select case .DirAtual
-        case 1 'Direita
-          .ImgX = .x * 32 + (.Passo * Jogo.TamanhoPasso)
-        case 2 'Esquerda
-          .ImgX = .x * 32 - (.Passo * Jogo.TamanhoPasso)
-        case 3 'Subindo
-          .imgY = .y * 32 - (.Passo * Jogo.TamanhoPasso)
+        case 1 ' Direita
+          .ImgX = .x * 32 + (.Passo * GJogo.TamanhoPasso)
+        case 2 ' Esquerda
+          .ImgX = .x * 32 - (.Passo * GJogo.TamanhoPasso)
+        case 3 ' Subindo
+          .imgY = .y * 32 - (.Passo * GJogo.TamanhoPasso)
         case 4, 5 'Descendo / Caindo
-          .imgY = .y * 32 + (.Passo * Jogo.TamanhoPasso)
+          .imgY = .y * 32 + (.Passo * GJogo.TamanhoPasso)
         case else
           .ImgX = .x * 32
           .ImgY = .y * 32
         end select
       end if
-      'Desenha
-      put (TRXa + .ImgX - (TRX * 32), TRYa + .ImgY - (TRY * 32)), GBitmaps(.Img), trans
+      ' Desenha
+      put (TRXa + .ImgX - (TRX * 32), TRYa + .ImgY - (TRY * 32)), GBitmap(.Img), trans
     end with
   end if
-  'Desenha objetos da frente (layer 3, trans)
-  if (jogo.status <> Top10) and (Jogo.Status <> Editor or EdShow >=2) then
+  ' Desenha objetos da frente (layer 3, trans)
+  if (GJogo.status <> Top10) and (GJogo.Status <> Editor or EdShow >=2) then
     for f = df1 to df2
       for g = dg1 to dg2
         if frente (TRX + f,TRY + g) > 0 then
-          put (TRXa + f * 32, TRYa + g * 32), GBitmaps(frente (TRX + f, TRY + g) + 24), alpha
+          put (TRXa + f * 32, TRYa + g * 32), GBitmap(frente (TRX + f, TRY + g) + 24), alpha
         end if
       next
     next
   end if
-  'Desenha água (layer 4, Alpha 95)
-  Agua0 = (Jogo.seqciclo * 13) mod 20
+  ' Desenha água (layer 4, Alpha 95)
+  Agua0 = (GJogo.seqciclo * 13) mod 20
   for f = df1 to df2
     for g = dg1 to dg2
-      'Desenha, se o fundo for água (0)
+      ' Desenha, se o fundo for água (0)
       if fundo (TRX + f, TRY + g) = 0 then
-        put (TRXa + f * 32, TRYa + g * 32), GBitmaps(213 + (Agua0 + F + g * 6) mod 20), alpha, 95
+        put (TRXa + f * 32, TRYa + g * 32), GBitmap(213 + (Agua0 + f + g * 6) mod 20), alpha, 95
       end if
     next
   next
-  'Desenha Lanterna (layer 5, Alpha variável)
-  if Jogo.Status <> Editor then
+  ' Desenha Lanterna (layer 5, Alpha variável)
+  if GJogo.Status <> Editor then
     if mina.noturno = 1 then
-      put (TRXa + boneco.ImgX - (TRX * 32) - 208, TRYa + boneco.ImgY - (TRY * 32) - 208), GBitmaps(275), (0, 0) - (443, 443), alpha
+      put (TRXa + GBoneco.ImgX - (TRX * 32) - 208, TRYa + GBoneco.ImgY - (TRY * 32) - 208), GBitmap(275), (0, 0) - (443, 443), alpha
     end if
-    'Desenha explosões (layer 6, trans)
+    ' Desenha explosões (layer 6, trans)
     for f = 0 to 10
       with Explosao(f)
         if .tipo > 0 then
-          for G = (.Tipo = 2) to - (.Tipo = 2)
-            for H = -1 to 1
-              put(TRXa + (.x - TRX + H) * 32, TRYa + (.y - TRY + G) * 32), GBitmaps(185 + int(.tempo / 3)), alpha
+          for g = (.Tipo = 2) to - (.Tipo = 2)
+            for h = -1 to 1
+              put(TRXa + (.x - TRX + h) * 32, TRYa + (.y - TRY + g) * 32), GBitmap(185 + int(.tempo / 3)), alpha
             next
           next
         else
           .Tempo = 0
         end if
-        'Incrementa contador
+        ' Incrementa contador
         .tempo += 1
         if .tempo >= 35 then
           .tempo = 0
@@ -1137,9 +1048,9 @@ sub Desenha
         endif
       end with
     next
-    'Mensagens de pontos na tela
+    ' Mensagens de pontos na tela
     for I = 0 to 9
-      with Msg (I)
+      with GMessage (I)
         if .Ciclo > 0 then
           EscrevePT (.Pontos, TRXa + (.X -TRX) * 32 + 16, TRYa + (.Y - TRY) * 32 - 12 + int(.Ciclo/4), int((127 - .Ciclo) / 16))
           .Ciclo -= 1
@@ -1179,115 +1090,115 @@ sub Desenha
       next
     end if
   end if
-  if Jogo.Status <> Editor then
-    'Desenha a barra inferior
-    put (0, 544), GBitmaps(210), pset
-    with Boneco
-      'Pontuação
+  if GJogo.Status <> Editor then
+    ' Desenha a barra inferior
+    put (0, 544), GBitmap(210), pset
+    with GBoneco
+      ' Pontuação
       EscreveNumero .Pontos, 6, 7, 577, 0
-      'Núm. mina
-      'If Jogo.Status <> ModoDemo Then
+      ' Núm. mina
+      'If GJogo.Status <> ModoDemo Then
         EscreveNumero .Mina, 3, 96, 577, 0
       'end if
-      'Oxigenio
-      put( 151, 576), GBitmaps(209), (0, 0) - step (.Oxigenio, 15), pset
-      'Qtde Itens Garrafa de Oxigenio
+      ' Oxigenio
+      put( 151, 576), GBitmap(209), (0, 0)-step(.Oxigenio, 15), pset
+      ' Qtde Itens Garrafa de Oxigenio
       EscreveNumero .ItOxigenio, 1, 296, 575, 0
-      'Qtde Itens Suporte Pedra
+      ' Qtde Itens Suporte Pedra
       EscreveNumero .ItSuporte, 1, 347, 575, 0
-      'Qtde Itens Picareta
+      ' Qtde Itens Picareta
       EscreveNumero .ItPicareta, 1, 393, 575, 0
-      'Qtde Itens Furadeira
+      ' Qtde Itens Furadeira
       EscreveNumero .ItFuradeira, 1, 445, 575, 0
-      'Qtde Itens Bombinha
+      ' Qtde Itens Bombinha
       EscreveNumero .ItBombinha, 1, 489, 575, 0
-      'Qtde Itens Bombona
+      ' Qtde Itens Bombona
       EscreveNumero .ItBombona, 1, 532, 575, 0
-      'Quantidade de pedras a recolher
+      ' Quantidade de pedras a recolher
       EscreveNumero Mina.Tesouros, 2, 550, 575, 0
-      'Vidas
+      ' Vidas
       EscreveNumero .Vidas, 2, 582, 576, 0
     end with
-    'Tempo Maximo
+    ' Tempo Maximo
     if Mina.Tempo > 0 then
-      EscreveNumero int(mina.Tempo/60), 2, 655,556, 1
-      EscreveNumero Mina.Tempo mod 60, 2, 683,556, 1
-      if mina.tempo - boneco.tempo >= 20 or Jogo.Status <> Jogando then
-        put (642, 578), GBitmaps(238), (48, 0) - step (9, 14), trans
+      EscreveNumero mina.Tempo \ 60, 2, 655, 556, 1
+      EscreveNumero Mina.Tempo mod 60, 2, 683, 556, 1
+      if mina.tempo - GBoneco.tempo >= 20 or GJogo.Status <> Jogando then
+        put (642, 578), GBitmap(238), (48, 0)-step(9, 14), trans
       else
-        if (jogo.seqciclo mod 2 = 1) or (jogo.status = VenceuJogo) then put (642, 578), GBitmaps(238), (int ((mina.tempo - boneco.tempo) / 5) * 12, 0) - step (9, 14), trans
+        if (GJogo.seqciclo mod 2 = 1) or (GJogo.status = VenceuJogo) then put (642, 578), GBitmap(238), (int ((mina.tempo - GBoneco.tempo) / 5) * 12, 0)-step(9, 14), trans
       end if
     end if
-    if jogo.seqciclo mod 2 = 1 and boneco.morreu = 0 and iniciado > 0 and jogo.status <> VenceuJogo then
+    if GJogo.seqciclo mod 2 = 1 and GBoneco.morreu = 0 and iniciado > 0 and GJogo.status <> VenceuJogo then
       line (679, 582) - (680, 590), point (679, 581), bf
     end if
-    EscreveNumero int(Boneco.Tempo / 60), 2, 655, 578, 1
-    EscreveNumero Boneco.Tempo mod 60, 2, 683, 578, 1
-    if Jogo.Status = ModoDemo then
+    EscreveNumero GBoneco.Tempo \ 60, 2, 655, 578, 1
+    EscreveNumero GBoneco.Tempo mod 60, 2, 683, 578, 1
+    if GJogo.Status = ModoDemo then
       DemoCiclo = DemoCiclo + 1
       select case MensDemo
       case 1
-        EscreveCentro TXT(11), 430, 1, 0
-        EscreveCentro TXT(12), 460, 1, 0
+        EscreveCentro GText(11), 430, 1, 0
+        EscreveCentro GText(12), 460, 1, 0
       case 2
-        EscreveCentro TXT(13), 445, 1, 0
+        EscreveCentro GText(13), 445, 1, 0
       case 3
-        EscreveCentro TXT(14), 430, 1, 0
-        EscreveCentro TXT(15), 460, 1, 0
+        EscreveCentro GText(14), 430, 1, 0
+        EscreveCentro GText(15), 460, 1, 0
       case 4
-        EscreveCentro TXT(16), 430, 1, 0
-        EscreveCentro TXT(17), 460, 1, 0
+        EscreveCentro GText(16), 430, 1, 0
+        EscreveCentro GText(17), 460, 1, 0
       case 5
-        EscreveCentro TXT(18), 445, 1, 0
+        EscreveCentro GText(18), 445, 1, 0
       case 6
-        EscreveCentro TXT(19), 430, 1, 0
-        EscreveCentro TXT(20), 460, 1, 0
+        EscreveCentro GText(19), 430, 1, 0
+        EscreveCentro GText(20), 460, 1, 0
       case 7
-        EscreveCentro TXT(21), 430, 1, 0
-        EscreveCentro TXT(22), 460, 1, 0
+        EscreveCentro GText(21), 430, 1, 0
+        EscreveCentro GText(22), 460, 1, 0
       case 8
-        EscreveCentro TXT(23), 445, 1, 0
+        EscreveCentro GText(23), 445, 1, 0
       case 9
-        EscreveCentro TXT(24), 445, 1, 0
+        EscreveCentro GText(24), 445, 1, 0
       case 10
-        EscreveCentro TXT(25), 430, 1, 0
-        EscreveCentro TXT(26), 460, 1, 0
+        EscreveCentro GText(25), 430, 1, 0
+        EscreveCentro GText(26), 460, 1, 0
       case 11
-        EscreveCentro TXT(27), 430, 1, 0
-        EscreveCentro TXT(28), 460, 1, 0
+        EscreveCentro GText(27), 430, 1, 0
+        EscreveCentro GText(28), 460, 1, 0
       case 12
-        EscreveCentro TXT(29), 430, 1, 0
-        EscreveCentro TXT(30), 460, 1, 0
+        EscreveCentro GText(29), 430, 1, 0
+        EscreveCentro GText(30), 460, 1, 0
       case 13
-        EscreveCentro TXT(31), 430, 1, 0
-        EscreveCentro TXT(32), 460, 1, 0
+        EscreveCentro GText(31), 430, 1, 0
+        EscreveCentro GText(32), 460, 1, 0
       case 14
-        EscreveCentro TXT(33), 430, 1, 0
-        EscreveCentro TXT(34), 460, 1, 0
+        EscreveCentro GText(33), 430, 1, 0
+        EscreveCentro GText(34), 460, 1, 0
       case 15
-        EscreveCentro TXT(35), 430, 1, 0
-        EscreveCentro TXT(36), 460, 1, 0
+        EscreveCentro GText(35), 430, 1, 0
+        EscreveCentro GText(36), 460, 1, 0
       case 16
-        EscreveCentro TXT(37), 430, 1, 0
-        EscreveCentro TXT(38), 460, 1, 0
+        EscreveCentro GText(37), 430, 1, 0
+        EscreveCentro GText(38), 460, 1, 0
       case 17
-        EscreveCentro TXT(39), 430, 1, 0
-        EscreveCentro TXT(40), 460, 1, 0
+        EscreveCentro GText(39), 430, 1, 0
+        EscreveCentro GText(40), 460, 1, 0
       case 18
-        EscreveCentro TXT(41), 445, 1, 0
+        EscreveCentro GText(41), 445, 1, 0
       case 19
-        EscreveCentro TXT(42), 430, 1, 0
-        EscreveCentro TXT(43), 460, 1, 0
+        EscreveCentro GText(42), 430, 1, 0
+        EscreveCentro GText(43), 460, 1, 0
       case 20
-        EscreveCentro TXT(44), 430, 1, 0
-        EscreveCentro TXT(45), 460, 1, 0
+        EscreveCentro GText(44), 430, 1, 0
+        EscreveCentro GText(45), 460, 1, 0
       case 21
-        EscreveCentro TXT(46), 430, 1, 0
-        EscreveCentro TXT(47), 460, 1, 0
+        EscreveCentro GText(46), 430, 1, 0
+        EscreveCentro GText(47), 460, 1, 0
       case 22
-        EscreveCentro TXT(48), 430, 1, 0
-        EscreveCentro TXT(49), 460, 1, 0
-        for F = 0 to 4
+        EscreveCentro GText(48), 430, 1, 0
+        EscreveCentro GText(49), 460, 1, 0
+        for f = 0 to 4
           line (480 + f, 480)-(533 + f, 533), &HFFA000
           line (515, 529 + f)-(533, 529 + f), &HFFA000
           line (533 + f, 515)-(533 + f, 533), &HFFA000
@@ -1296,18 +1207,18 @@ sub Desenha
     end if
   else
     line (0, 543) - (799, 543), &H000000
-    select case Jogo.EdStatus
+    select case GJogo.EdStatus
     case Editando
       line (1, 545) - (609, 563), &HA0A0A0, BF
       line (0, 565) - (610, 599), &H000000, BF
       line (611, 544) - (611, 599), &H606060
       line (612, 544) - (612, 599), &H000000
       line (614, 545) - (798, 598), &HA0A0A0, BF
-      line (667 , 544) - (667 , 599), &H000000
-      line (718 , 544) - (718 , 599), &H000000
+      line (667, 544) - (667 , 599), &H000000
+      line (718, 544) - (718 , 599), &H000000
       select case PosMouse
       case EdForaTela
-        'Nada a fazer
+        ' Nada a fazer
       case EdTela
         Dlinha EDX1 * 32 - 3, EDY1 * 32 - 3, EDX1 * 32 + 34, EDY1 * 32 + 34, 0
       case EdInicio
@@ -1321,7 +1232,7 @@ sub Desenha
       case EdBarra
         line (47, 545) - (563, 563), &HFFFFFF, BF
       case EdItem
-        line (int (MouseX / 34) * 34 - 1, 565) - step (35, 34), &HFFFFFF, BF
+        line (int (GMX / 34) * 34 - 1, 565)-step(35, 34), &HFFFFFF, BF
       case EdNovo
         line (614, 545) - (638, 570), &HFFFFFF, BF
       case EdAbre
@@ -1342,33 +1253,33 @@ sub Desenha
         line (720, 573) - (744, 598), &HFFFFFF, BF
       case EdRedo
         line (747, 573) - (771, 598), &HFFFFFF, BF
-      case EdEXIT
+      case EdExit
         line (774, 573) - (798, 598), &HFFFFFF, BF
       end select
-      'se mouse estiver sobre qualquer área, fazer um hilight em amarelo ou verde
-      put (0, 544), GBitmaps(279), trans
-      'calcula posiçao da barra e mostra:
-      put (46 + Primeiroitem * 4.48, 545), GBitmaps(278), alpha
-      put (613, 544), GBitmaps(280), trans
+      ' Se mouse estiver sobre qualquer área, fazer um hilight em amarelo ou verde
+      put (0, 544), GBitmap(279), trans
+      ' Calcula posiçao da barra e mostra
+      put (46 + Primeiroitem * 4.48, 545), GBitmap(278), alpha
+      put (613, 544), GBitmap(280), trans
       if ItemSel >= PrimeiroItem and ItemSel <= PrimeiroItem + 17 then
-        line (int (ItemSel - PrimeiroItem) * 34 - 1, 565) - step (35, 34), &H40ff40, BF
+        line (int (ItemSel - PrimeiroItem) * 34 - 1, 565)-step(35, 34), &H40ff40, BF
       end if
       for f = 0 to 17
-        DesenhaItem f * 34 + 1, 568, PrimeiroItem + F
+        DesenhaItem f * 34 + 1, 568, PrimeiroItem + f
       next
-      if EdShow = 0 or Edshow = 1 then put (670, 547), GBitmaps(281), trans
-      if EdShow = 0 or Edshow = 3 then put (670, 564), GBitmaps(281), trans
+      if EdShow = 0 or Edshow = 1 then put (670, 547), GBitmap(281), trans
+      if EdShow = 0 or Edshow = 3 then put (670, 564), GBitmap(281), trans
     case Selecionando
       DesBox 24, 1, 4, 400, 572
-      EscreveCentro TXT(109), 562
+      EscreveCentro GText(109), 562
       Dlinha EDXX1 * 32 - 3, EDYY1 * 32 - 3, EDXX2 * 32 + 34, EDYY2 * 32 + 34, 1
     case EdMovendo
       DesBox 24, 1, 4, 400, 572
-      EscreveCentro TXT(110), 562
+      EscreveCentro GText(110), 562
     case Apagando0, Apagando1
       DesBox 24, 1, 4, 400, 572
-      EscreveCentro TXT(111), 562
-      if Jogo.EdStatus = Apagando0 then
+      EscreveCentro GText(111), 562
+      if GJogo.EdStatus = Apagando0 then
         Dlinha EDX1 * 32 - 3, EDY1 * 32 - 3, EDX1 * 32 + 34, EDY1 * 32 + 34, 3
       else
         Dlinha EDXX1 * 32 - 3, EDYY1 * 32 - 3, EDXX2 * 32 + 34, EDYY2 * 32 + 34, 2
@@ -1377,34 +1288,30 @@ sub Desenha
   end if
 end sub
 
-'Escreve a pontuação ganha na tela
-
+' Escreve a pontuação ganha na tela
 sub EscrevePT (Pontos as  integer, X as integer, Y as integer, CJCarac as integer)
   dim as string StrNum, NumTxt
-  dim as integer X1, NumVal, F
-  'Passa o número para texto
+  dim as integer X1, NumVal, f
+  ' Passa o número para texto
   StrNum= str(Pontos)
-  X1 = X - (len (StrNum) * 6)
-  for f = 1 to len (StrNum)
+  X1 = X - len(StrNum) * 6
+  for f = 1 to len(StrNum)
     NumTxt = mid(StrNum, f, 1)
     NumVal = val (NumTxt)
-    put (x1 + f * 12 - 12, Y), GBitmaps(239 + CJCarac), (NumVal * 9, 0) - step (8,14), alpha
+    put (x1 + f * 12 - 12, Y), GBitmap(239 + CJCarac), (NumVal * 9, 0)-step(8,14), alpha
   next
 end sub
 
-'Escreve um número (caracteres especiais)
-
+' Escreve um número (caracteres especiais)
 sub EscreveNumero (byval Numero as long, Comprimento as  integer, X1 as integer, Y1 as integer, Preenche as integer)
   dim as string StrNum, NumTxt
-  dim as integer NumVal, F
-
+  dim as integer NumVal, f
   if Preenche=0 then
     StrNum= right(space (Comprimento) & str(Numero), Comprimento)
   else
     StrNum= right("0000000000" & str(Numero), Comprimento)
   end if
-  if len (StrNum) < len (str(Numero)) then StrNum = string (Comprimento, "+")
-
+  if len(StrNum) < len(str(Numero)) then StrNum = string (Comprimento, "+")
   for f= 1 to Comprimento
     NumTxt= mid(StrNum,f,1)
     if NumTxt =" " then
@@ -1414,12 +1321,11 @@ sub EscreveNumero (byval Numero as long, Comprimento as  integer, X1 as integer,
     else
       NumVal=val(NumTxt)+1
     end if
-    put (x1+f*12-12, Y1), GBitmaps(197 + NumVal), pset
+    put (x1+f*12-12, Y1), GBitmap(197 + NumVal), pset
   next
 end sub
 
-'Escreve textos
-
+' Escreve textos
 sub Escreve (byval Texto as string, x1 as integer, y1 as integer, Bold as integer = 0, BoldV as integer = 0)
   dim as integer LF, PosL, LG, LV
   for LF = 1 to len(Texto)
@@ -1429,7 +1335,7 @@ sub Escreve (byval Texto as string, x1 as integer, y1 as integer, Bold as intege
     else
       for LV = 0 to BoldV
         for LG = 0 to Bold
-          put(X1 + LG, Y1 + LV), GBitmaps(247), (PosLetra (PosL, 0), 0) - (PosLetra (PosL, 1), 21), alpha
+          put(X1 + LG, Y1 + LV), GBitmap(247), (PosLetra (PosL, 0), 0) - (PosLetra (PosL, 1), 21), alpha
         next
       next
       x1 += PosLetra (PosL, 1) - PosLetra (PosL, 0) + Bold + 2
@@ -1437,17 +1343,15 @@ sub Escreve (byval Texto as string, x1 as integer, y1 as integer, Bold as intege
   next
 end sub
 
-'Escreve textos centralizados
-
+' Escreve textos centralizados
 sub EscreveCentro (byval Texto as string, Y1 as integer, Bold as integer = 0, BoldV as integer = 0)
   Escreve Texto, 399-LargTexto(Texto, Bold)/2, Y1, Bold, BoldV
 end sub
 
-'Calcula a largura que um texto ocupa em pixels
-
+' Calcula a largura que um texto ocupa em pixels
 function LargTexto (byval Texto as string, Bold as integer = 0) as integer
   dim as integer LF, PosL, LArg
-  for LF = 1 to len (Texto)
+  for LF = 1 to len(Texto)
     PosL = instr(Lt_,mid(Texto,LF,1)) - 1
     if PosL = -1 then
       Larg += 8
@@ -1459,31 +1363,28 @@ function LargTexto (byval Texto as string, Bold as integer = 0) as integer
   return Larg
 end function
 
-'Inicializa dados para nova partida
-
+' Inicializa dados para nova partida
 sub IniciaJogo
   randomize
-  'Inicializa as variáveis principais
-  with Jogo
+  ' Inicializa as variáveis principais
+  with GJogo
     .UltExplosao=0
     .Encerra=0
     .player=int(rnd * 2)
     .Ciclo=0
   .SeqCiclo=0
   end with
-
-  with Boneco
-    .Mina=1
-    .Vidas=Jogo.NumVidas
-    .Pontos=0
+  with GBoneco
+    .Mina = 1
+    .Vidas = GJogo.NumVidas
+    .Pontos = 0
   end with
 end sub
 
-'Inicia dados da vida (zera status do boneco)
-
+' Inicia dados da vida (zera status do boneco)
 sub IniciaVida
-  dim F as integer
-  with Boneco
+  dim f as integer
+  with GBoneco
     .Morreu=0
     .Empurrando =0
     .Passo =0
@@ -1508,39 +1409,39 @@ sub IniciaVida
   end with
 
   Iniciado=0
-  TIMESTART = Clock + 5
-  Jogo.UltExplosao=0
+  GTimeStart = Clock + 5
+  GJogo.UltExplosao=0
   for f = 0 to 10
     Explosao (f).Tipo=0
     Explosao (f).Tempo=0
   next
 end sub
 
-'Le arquivo e monta uma mina
-sub LeMinaOUT (NMina as integer, Editando as integer = 0)
+' Le arquivo e monta uma mina
+sub LoadCustomMineFromFile(NMina as integer, Editando as integer)
   dim as string Linha, NArq
   LimpaMina
-  'zera contador de tesouros para iniciar a contagem
+  ' Zera contador de tesouros para iniciar a contagem
   Mina.Tesouros = 0
-  'Abre arquivo
+  ' Abre arquivo
   if NMina = -1 then
     NArq = "minas/teste.map"
   else
     LimpaMinaEditor
     NArq = "minas/m" + right("000" & str(NMina), 3) + ".map"
   end if
-  'Verifica se o arquivo existe
+  ' Verifica se o arquivo existe
   if fileexists (Narq) then
     if NMina > -1 then Mina.numero = NMina
     open Narq for binary as #1
-    get #1, , Mina.LArg
-    get #1, , Mina.Alt
-    get #1, , Mina.Noturno
-    get #1, , Mina.Tempo
+    get #1,, Mina.LArg
+    get #1,, Mina.Alt
+    get #1,, Mina.Noturno
+    get #1,, Mina.Tempo
     LeMinaDet Editando
     close #1
-  else  'Arquivo não existe
-    Mensagem 4, 8, TXT(0), TXT(50), ""
+  else ' Arquivo não existe
+    Mensagem 4, 8, GText(0), GText(50), ""
     if Tecla <> "" and Tecla <> UltTecla then
       MudaStatus NoMenu
     end if
@@ -1553,44 +1454,44 @@ sub LeMinaOUT (NMina as integer, Editando as integer = 0)
 end sub
 
 sub Joga
-  dim as integer Emp1, Emp2, Emp3, SeqDemo, F, G, H, I
-  DEBUG_LOG("Enter main procedure")
+  dim as integer Emp1, Emp2, Emp3, SeqDemo, f, g, h, I
+  dim as integer ConfirmDel = 0
+  DEBUG_LOG("Enter game procedure")
   ATimer = int(Clock * 1000)
-  if VRed + VGreen + VBlue = 0 then VBlue = 1
+  if GRed + GGreen + GBlue = 0 then GBlue = 1
   TeclasDemo = _ 
   "R01M01R15M22R23M02R24M03L23M04L16M05L12M06L08M07L05M08L04M09D04L00R01W20L00M10R24D06M11L22IC L20ICLL18ICLL16M12IV R18W50L14IV R16W50L12ICLL10" & _
   "IV R12W50L08ICLL06IV R08W50L04ICLL02IV R04W50L01M13L00IX M14D08R04M15IB L02W50R06IB L04W50R08IB L06W50R10IB L08W50R12IB L10W50R14IB L12W50R16IB L14W50" & _
   "R17M16R20IZ R21M17R22M18IB L19W20L01M19D10L00M20R24U09M21###"
   Tecla = ""
-  'CICLO DO JOGO
-  while Jogo.Encerra = 0
-    Jogo.Status0 = Jogo.Status
-    'Silencia canais que terminaram de reproduzir sons
+  while GJogo.Encerra = 0
+    GJogo.Status0 = GJogo.Status
+    ' Silencia canais que terminaram de reproduzir sons
     Silencia
     if inkey = chr(255) + "k" then
-      Jogo.Encerra = 1
+      GJogo.Encerra = 1
       goto TerminaCiclo
     end if
-    'Não há som a reproduzir
+    ' Não há som a reproduzir
     for f =1 to 6
       for g = 1 to 4
         Toca(f, g) = 0
       next
     next
-    'Incrementa Contador de ciclos
-    with Jogo
-      .Ciclo = (.Ciclo+1) mod .passos
-      If.Ciclo=0 then
-        .SeqCiclo= (.SeqCiclo + 1) mod 1500
-        if .seqciclo mod 10 = 0 then windowtitle "FreeBasic Miner"
+    ' Incrementa Contador de ciclos
+    with GJogo
+      .Ciclo = (.Ciclo + 1) mod .passos
+      if .Ciclo = 0 then
+        .SeqCiclo = (.SeqCiclo + 1) mod 1500
+        if .seqciclo mod 10 = 0 then windowtitle CAppName
       end if
     end with
-    'Lê o teclado
+    ' Lê o teclado
     UltTecla = Tecla
     Tecla = ""
-    'Controles
-    for F = 0 to 127
-      if multikey (f) then Tecla = "?"
+    ' Controles
+    for f = 0 to 127
+      if multikey(f) then Tecla = "?"
     next
     if multikey(FB.SC_ENTER) then Tecla ="["
     if multikey(FB.SC_ESCAPE) then Tecla ="ESC"
@@ -1608,37 +1509,36 @@ sub Joga
     if multikey(SC_TAB) then Tecla = "TAB"
     if multikey(SC_PAGEUP) then Tecla = "@"
     if multikey(SC_PAGEDOWN) then Tecla = "#"
-    'Movimento
-    if multikey(FB.SC_DOWN) then Tecla ="D"
-    if multikey(FB.SC_LEFT) then Tecla ="L"
-    if multikey(FB.SC_RIGHT) then Tecla ="R"
-    if multikey(FB.SC_UP) then Tecla ="U"
-    LeMouse
-    select case Jogo.Status
-    case NoMenu 'MENU --> mostra as opções até uma ser escolhida
-      'Fundo e LOGO
+    ' Movimento
+    if multikey(FB.SC_DOWN) then Tecla = "D"
+    if multikey(FB.SC_LEFT) then Tecla = "L"
+    if multikey(FB.SC_RIGHT) then Tecla = "R"
+    if multikey(FB.SC_UP) then Tecla = "U"
+    GetMouseState
+    select case GJogo.Status
+    case NoMenu ' Mostra as opções até uma ser escolhida
       DesFundo
       PutLogo 290, 40
-      'Opções
+      ' Opções
       MouseSobre = -1
-      for F = 0 to 8
-        if (MouseY > 300) and (MouseY < 363) and (MouseX > 48 + F * 80) and (MouseX < 111 + F * 80) then
-          MouseSobre = F
-          if (MouseMoveu = 1) and (OpMenu <> F) then
-            Sound01(OpMenu, F)
-            OpMenu = F
+      for f = 0 to 8
+        if (GMY > 300) and (GMY < 363) and (GMX > 48 + f * 80) and (GMX < 111 + f * 80) then
+          MouseSobre = f
+          if (GMMove = 1) and (OpMenu <> f) then
+            Sound01(OpMenu, f)
+            OpMenu = f
           end if
         end if
-        if OpMenu = F then
-          put (32 + f * 80, 284), GBitmaps(277), (0,0)-(95,95), alpha
-          put (48 + F * 80, 300), GBitmaps(276), (f*64,64)-Step(63,63), trans
+        if OpMenu = f then
+          put (32 + f * 80, 284), GBitmap(277), (0, 0)-(95, 95), alpha
+          put (48 + f * 80, 300), GBitmap(276), (f * 64, 64)-step(63, 63), trans
         else
-          put (48 + F * 80, 300), GBitmaps(276), (f*64,0)-Step(63,63), trans
+          put (48 + f * 80, 300), GBitmap(276), (f * 64, 0)-step(63, 63), trans
         end if
       next
-      EscreveCentro TXT (OpMenu + 2), 380, 1, 1
-      if (Tecla <> "") or (MouseMoveu = 1) then TTDemo1 = Clock
-      if MouseSobre > -1 and MouseDisparou = 1 then OpMenu = MouseSobre : Tecla = "["
+      EscreveCentro GText(OpMenu + 2), 380, 1, 1
+      if (Tecla <> "") or (GMMove = 1) then GDemoTimer = Clock
+      if MouseSobre > -1 and GMBDown = 1 then OpMenu = MouseSobre : Tecla = "["
       if UltTecla <> Tecla then
         if Tecla = "D" or tecla = "R" then
           Sound01(OpMenu, (Opmenu + 1) mod (Sair + 1))
@@ -1647,18 +1547,18 @@ sub Joga
           Sound01(OpMenu, (OpMenu + Sair) mod (Sair + 1))
           OpMenu = (OpMenu + Sair) mod (Sair + 1)
         elseif Tecla = "ESC" then
-          Jogo.encerra=1
+          GJogo.encerra = 1
         elseif Tecla = "[" or tecla = "]" then
-          select case OpMenu  'Jogar, IrPara, VerTop, Sobre, Volume, EscIdioma, Custom, Editar, Sair
+          select case OpMenu  ' Jogar, IrPara, VerTop, Sobre, Volume, EscIdioma, Custom, Editar, Sair
           case Jogar
             Opcao1 = 0
             MudaStatus Jogando
             IniciaJogo
             IniciaVida
             Mina.Tipo = 0
-            LeMinaIn 1
+            LoadMineFromFile 1
             Iniciado=0
-            TIMESTART = Clock + 5
+            GTimeStart = Clock + 5
           case IrPara, Volume
             Opcao1 = 0
             MudaStatus Configs
@@ -1668,42 +1568,42 @@ sub Joga
           case Sobre
             MudaStatus Instruc
           case EscIdioma
-            Jogo.Status = SelIdioma
+            GJogo.Status = SelIdioma
             ProcIdiomas
           case Custom_
             Opcao1 = 0
-            Boneco.Mina = 0
+            GBoneco.Mina = 0
             cls
             TrocaTelas
             cls
-            Mensagem 7, 8, TXT(92), TXT(93), " "
-            LeMinasPers
+            Mensagem 7, 8, GText(92), GText(93), " "
+            SearchCustomMines
             TrocaTelas
             cls
             MudaStatus Configs
           case Editar
             Opcao1 = 0
-            Boneco.Mina = 0
+            GBoneco.Mina = 0
             cls
             TrocaTelas
             cls
-            Mensagem 7, 8, TXT(92), TXT(93), " "
-            LeMinasPers
+            Mensagem 7, 8, GText(92), GText(93), " "
+            SearchCustomMines
             TrocaTelas
             cls
             MudaStatus Configs
           case Sair
-            Jogo.encerra = 1
+            GJogo.encerra = 1
           end select
         end if
       end if
-      if Clock > TTDemo1 + 8 then
+      if Clock > GDemoTimer + 8 then
         MudaStatus ModoDemo
         Mina.Tipo = 0
         IniciaJogo
         IniciaVida
-        LeMinaIn 0
-        Iniciado=0
+        LoadMineFromFile 0
+        Iniciado = 0
         MensDemo = 0
         TempMens = 0
         Tecla = ""
@@ -1715,122 +1615,122 @@ sub Joga
     case SelIdioma  'troca o idioma do programa
       DesFundo
       PutLogo 290, 40
-      if IQuant = 0 then
+      if GLangCount = 0 then
         Mensagem 5, 8, "Só há o idioma português instalado.", "", ""
         if Tecla <> "" and ulttecla <> Tecla then
           MudaStatus NoMenu
         end if
       else
-        DesBox 10, IQuant + 3, 0, 400, 370
-        EscreveCentro TXT(7), 374 - (IQuant + 3) * 16, 1, 1
+        DesBox 10, GLangCount + 3, 0, 400, 370
+        EscreveCentro GText(7), 374 - (GLangCount + 3) * 16, 1, 1
         MouseSobre = -1
-        for f = 0 to IQuant
-          if (MouseX > 252) and (MouseX < 547) and (abs (MouseY - (444 - (IQuant + 3) * 16 + f * 32)) < 16) then
-            MouseSobre = F
-            if MouseMoveu = 1 then NAtual = F
+        for f = 0 to GLangCount
+          if (GMX > 252) and (GMX < 547) and (abs(GMY - (444 - (GLangCount + 3) * 16 + f * 32)) < 16) then
+            MouseSobre = f
+            if GMMove = 1 then GCurrLangIndex = f
           end if
-          EscreveCentro Idioma (f), 434 - (IQuant + 3) * 16 + F * 32, 1, 0
+          EscreveCentro GLangName (f), 434 - (GLangCount + 3) * 16 + f * 32, 1, 0
         next
-        line (250, 426 - (IQuant + 3) * 16 + NAtual * 32) - step (300, 35), rgb(0, 127, 255), b
-        line (251, 427 - (IQuant + 3) * 16 + NAtual * 32) - step (298, 33), rgb(0, 127, 255), b
-        if MouseSobre > -1 and MouseDisparou = 1 then NAtual = MouseSobre : Tecla = "["
+        line (250, 426 - (GLangCount + 3) * 16 + GCurrLangIndex * 32)-step(300, 35), rgb(0, 127, 255), b
+        line (251, 427 - (GLangCount + 3) * 16 + GCurrLangIndex * 32)-step(298, 33), rgb(0, 127, 255), b
+        if MouseSobre > -1 and GMBDown = 1 then GCurrLangIndex = MouseSobre : Tecla = "["
         if UltTecla <> Tecla then
-          if (Tecla = "U" or Tecla ="L") and NAtual > 0 then NAtual -= 1
-          if (Tecla = "D" or Tecla ="R") and NAtual < IQuant then NAtual += 1
+          if (Tecla = "U" or Tecla ="L") and GCurrLangIndex > 0 then GCurrLangIndex -= 1
+          if (Tecla = "D" or Tecla ="R") and GCurrLangIndex < GLangCount then GCurrLangIndex += 1
           if Tecla = "[" or Tecla = "]" then
-            IAtual = Idioma (NAtual)
-            LeTXT (IAtual)
+            GCurrLangName = GLangName (GCurrLangIndex)
+            LoadLanguage (GCurrLangName)
             RegravaConfig
             MudaStatus NoMenu
           end if
           if Tecla = "ESC" then MudaStatus NoMenu
         end if
       end if
-    case Configs 'trata algumas opções do menu
-      'Desenha fundo e LOGO
+    case Configs ' Trata algumas opções do menu
+      ' Desenha fundo e LOGO
       DesFundo
       PutLogo 290, 40
       select case OpMenu
-      case IrPara 'Ir para Mina...
-        if Boneco.Mina < 1 or Boneco.Mina > Jogo.NumMinas then Boneco.Mina = 1
-        EscreveCentro TXT(51), 140, 1, 0
-        EscreveCentro TXT(52), 575, 1, 0
-        Mina1 = int((boneco.mina - 1) / 100) * 100 + 1
-        if Mina1 > Jogo.NumMinas - 100 then
-          Mina2 = Jogo.NumMinas - Mina1 + 1
+      case IrPara ' Ir para Mina...
+        if GBoneco.Mina < 1 or GBoneco.Mina > GJogo.NumMinas then GBoneco.Mina = 1
+        EscreveCentro GText(51), 140, 1, 0
+        EscreveCentro GText(52), 575, 1, 0
+        Mina1 = int((GBoneco.mina - 1) / 100) * 100 + 1
+        if Mina1 > GJogo.NumMinas - 100 then
+          Mina2 = GJogo.NumMinas - Mina1 + 1
         else
           Mina2 = 100
         end if
         MouseSobre = -1
-        for F = 0 to Mina2 - 1
-          XM = (F mod 10) * 65 + 80
-          YM = int (F / 10) * 40 + (370 - int((Mina2 + 9)/10) * 20)
-          if Mina1 + F > Jogo.MaxAlcancada then
-            put (XM, YM + 2), GBitmaps(276), (576, 33) - (630, 65), trans
+        for f = 0 to Mina2 - 1
+          XM = (f mod 10) * 65 + 80
+          YM = int (f / 10) * 40 + (370 - int((Mina2 + 9) / 10) * 20)
+          if Mina1 + f > GJogo.MaxAlcancada then
+            put (XM, YM + 2), GBitmap(276), (576, 33) - (630, 65), trans
           else
-            put (XM, YM + 2), GBitmaps(276), (576, 0) - (630, 32), trans
+            put (XM, YM + 2), GBitmap(276), (576, 0) - (630, 32), trans
           end if
-          if (MouseX > XM) and (MOuseX < XM + 54) and (MouseY > YM + 2) and (MouseY < YM + 35) then
-            MouseSobre = Mina1 + F
+          if (GMX > XM) and (GMX < XM + 54) and (GMY > YM + 2) and (GMY < YM + 35) then
+            MouseSobre = Mina1 + f
           end if
-          if Mina1 + F > Jogo.MaxAlcancada then
-            put (XM, YM + 6), GBitmaps(276), (576, 103) - (630, 127), trans
-          elseif Mina1 + F < 10 then
-            Escreve str(Mina1 + F), XM + 23, YM + 8, 1, 0
-          elseif Mina1 + F < 100 then
-            Escreve str(Mina1 + F), XM + 17, YM + 8, 1, 0
+          if Mina1 + f > GJogo.MaxAlcancada then
+            put (XM, YM + 6), GBitmap(276), (576, 103) - (630, 127), trans
+          elseif Mina1 + f < 10 then
+            Escreve str(Mina1 + f), XM + 23, YM + 8, 1, 0
+          elseif Mina1 + f < 100 then
+            Escreve str(Mina1 + f), XM + 17, YM + 8, 1, 0
           else
-            Escreve str(Mina1 + F), XM + 11, YM + 8, 1, 0
+            Escreve str(Mina1 + f), XM + 11, YM + 8, 1, 0
           end if
         next
-        if (MouseMoveu = 1) and (MouseSobre > -1) then Boneco.Mina = MouseSobre
-        if MouseSobre > -1 and MouseDisparou = 1 then Boneco.Mina = MouseSobre : Tecla = "["
-        XM = ((Boneco.Mina - Mina1) mod 10) * 65 + 80
-        YM = int ((Boneco.Mina - Mina1) / 10) * 40 + (370 - int((Mina2+9)/10) * 20)
-        put (XM, YM), GBitmaps(276), (576, 66)-(630, 102), trans
+        if (GMMove = 1) and (MouseSobre > -1) then GBoneco.Mina = MouseSobre
+        if MouseSobre > -1 and GMBDown = 1 then GBoneco.Mina = MouseSobre : Tecla = "["
+        XM = ((GBoneco.Mina - Mina1) mod 10) * 65 + 80
+        YM = int ((GBoneco.Mina - Mina1) / 10) * 40 + (370 - int((Mina2 + 9) / 10) * 20)
+        put (XM, YM), GBitmap(276), (576, 66)-(630, 102), trans
         if MouseWDir = -1 then Tecla = "#"
         if MouseWDir = 1 then Tecla = "@"
         if Tecla <>"" and Tecla <> UltTecla then
           select case Tecla
           case "D"
-            if Boneco.Mina <= Jogo.NumMinas - 10 then Boneco.Mina += 10
+            if GBoneco.Mina <= GJogo.NumMinas - 10 then GBoneco.Mina += 10
           case "L"
-            if Boneco.Mina > 1 then Boneco.Mina -= 1
+            if GBoneco.Mina > 1 then GBoneco.Mina -= 1
           case "U"
-            if Boneco.Mina > 10 then Boneco.Mina -= 10
+            if GBoneco.Mina > 10 then GBoneco.Mina -= 10
           case "R"
-            if Boneco.Mina < Jogo.NumMinas then Boneco.Mina += 1
+            if GBoneco.Mina < GJogo.NumMinas then GBoneco.Mina += 1
           case "@"
-            if Boneco.Mina > 100 then Boneco.Mina -= 100 else Boneco. Mina = 1
+            if GBoneco.Mina > 100 then GBoneco.Mina -= 100 else GBoneco. Mina = 1
           case "#"
-            if Boneco.Mina < Jogo.NumMinas - 100 then Boneco.Mina += 100 else Boneco.Mina = Jogo.NumMinas
+            if GBoneco.Mina < GJogo.NumMinas - 100 then GBoneco.Mina += 100 else GBoneco.Mina = GJogo.NumMinas
           case "ESC"
             MudaStatus NoMenu
           case "[", "]"
-            if Boneco.Mina <= Jogo.MaxAlcancada then
-              XM = Boneco.Mina
+            if GBoneco.Mina <= GJogo.MaxAlcancada then
+              XM = GBoneco.Mina
               IniciaJogo
               IniciaVida
-              Boneco.Mina = XM
+              GBoneco.Mina = XM
               Mina.Tipo = 0
-              LeMinaIn XM
+              LoadMineFromFile XM
               Iniciado = 0
-              TIMESTART = Clock + 5
+              GTimeStart = Clock + 5
               MudaStatus Jogando
             end if
           end select
         end if
-      case Volume 'Ajuste do Volume
-        put (364,250), GBitmaps(276), (256,0)-Step(63,63), trans
+      case Volume ' Ajuste do Volume
+        put (364, 250), GBitmap(276), (256,0)-step(63, 63), trans
         MouseSobre = -1
-        if (MouseY > 330) and (MouseY < 400) and (MouseX > 270) and (MouseX < 530) then
-          MouseSobre = (MouseX - 275) / 2
+        if (GMY > 330) and (GMY < 400) and (GMX > 270) and (GMX < 530) then
+          MouseSobre = (GMX - 275) / 2
           if MouseSobre <0 then MouseSobre = 0
           if MouseSobre > 127 then MouseSobre = 127
         end if
-        if MouseDisparou = 1 then
+        if GMBDown = 1 then
           if MouseSobre > -1 then
-            Jogo.volume = mousesobre
+            GJogo.volume = mousesobre
           else
             Tecla = "["
           endif
@@ -1845,35 +1745,35 @@ sub Joga
           line (270, 405) - (530, 325), &H909090, b
           line (269, 406) - (531, 324), &H909090, b
         end if
-        for F = 0 to 15
-          if Jogo.Volume >= F * 8 then
-            line (275 + f * 16, 400) - step(10, -10 - f * 4), CorRGB, BF
+        for f = 0 to 15
+          if GJogo.Volume >= f * 8 then
+            line (275 + f * 16, 400)-step(10, -10 - f * 4), CorRGB, BF
           else
-            line (275 + f * 16, 400) - step(10, -10 - f * 4), CorRGB2, BF
+            line (275 + f * 16, 400)-step(10, -10 - f * 4), CorRGB2, BF
           end if
         next
-        if jogo.volume = 0  then line (275,400) - step(10, -10 ), rgba(180,0,0,0), BF
-        if jogo.volume = 127  then line (515,400) - step(10, -70 ), rgba(200,200,0,0), BF
-        EscreveCentro TXT(53), 440, 1, 0
-        EscreveCentro TXT(54), 500, 1, 0
+        if GJogo.volume = 0  then line (275,400)-step(10, -10 ), rgba(180, 0, 0, 0), BF
+        if GJogo.volume = 127  then line (515,400)-step(10, -70 ), rgba(200, 200, 0, 0), BF
+        EscreveCentro GText(53), 440, 1, 0
+        EscreveCentro GText(54), 500, 1, 0
         if tecla = "D" or Tecla = "L" then
-          if Jogo.Volume > 0 then Jogo.volume -= 1
+          if GJogo.Volume > 0 then GJogo.volume -= 1
         elseif tecla = "U" or tecla = "R" then
-          if jogo.volume < 127 then Jogo.volume += 1
+          if GJogo.volume < 127 then GJogo.volume += 1
         elseif (tecla = "[" or tecla = "]" or Tecla = "ESC") and UltTecla <> tecla then
           RegravaConfig
           MudaStatus NoMenu
         elseif MouseWDir = -1 then
-          if Jogo.Volume > 8 then
-            Jogo.Volume -= 8
+          if GJogo.Volume > 8 then
+            GJogo.Volume -= 8
           else
-            Jogo.Volume = 0
+            GJogo.Volume = 0
           end if
         elseif MouseWDir = 1 then
-          Jogo.Volume += 8
-          if Jogo.Volume > 127 then Jogo.Volume = 127
+          GJogo.Volume += 8
+          if GJogo.Volume > 127 then GJogo.Volume = 127
         end if
-        'midiOutSetVolume(0, (jogo.volume shl 9) Or (jogo.volume shl 1))
+        'midiOutSetVolume(0, (GJogo.volume shl 9) Or (GJogo.volume shl 1))
       case Custom_, Editar
         MouseSobre = -1
         if (QuantPers = 0) then
@@ -1881,35 +1781,35 @@ sub Joga
             LimpaMina
             LimpaMinaEditor
             MudaStatus Editor
-            Jogo.EdStatus = Editando
+            GJogo.EdStatus = Editando
           else
-            Mensagem 7, 8, TXT(55), TXT(56),""
-            if (Tecla <>"" and Tecla <> UltTecla) or (MouseDisparou = 1) then
+            Mensagem 7, 8, GText(55), GText(56), ""
+            if (Tecla <> "" and Tecla <> UltTecla) or (GMBDown = 1) then
               MudaStatus NoMenu
             end if
           end if
         else
-          if Boneco.Mina < 0 or Boneco.Mina > QuantPers -1 then Boneco.Mina = 0
-          EscreveCentro TXT(51), 140, 1, 0
+          if GBoneco.Mina < 0 or GBoneco.Mina > QuantPers -1 then GBoneco.Mina = 0
+          EscreveCentro GText(51), 140, 1, 0
           if OpMenu = Editar then
-            EscreveCentro TXT(97), 575, 1, 0
+            EscreveCentro GText(97), 575, 1, 0
           else
-            EscreveCentro TXT(52), 575, 1, 0
+            EscreveCentro GText(52), 575, 1, 0
           end if
-          Mina1 = int((boneco.mina) / 100) * 100
+          Mina1 = int((GBoneco.mina) / 100) * 100
           if Mina1 > QuantPers - 100 then
             Mina2 = QuantPers - Mina1
           else
             Mina2 = 100
           end if
-          for F = 0 to Mina2 - 1
-            XM = (F mod 10) * 65 + 80
-            YM = int (F / 10) * 40 + (370 - int((Mina2 + 9)/10) * 20)
-            put (XM, YM+2), GBitmaps(276), (576, 0)-(630, 32), trans
-            if (MouseX > XM) and (MOuseX < XM + 54) and (MouseY > YM + 2) and (MouseY < YM + 35) then
-              MouseSobre = Mina1 + F
+          for f = 0 to Mina2 - 1
+            XM = (f mod 10) * 65 + 80
+            YM = int (f / 10) * 40 + (370 - int((Mina2 + 9)/10) * 20)
+            put (XM, YM+2), GBitmap(276), (576, 0)-(630, 32), trans
+            if (GMX > XM) and (GMX < XM + 54) and (GMY > YM + 2) and (GMY < YM + 35) then
+              MouseSobre = Mina1 + f
             end if
-            PersTemp = MinaPers (Mina1 + F)
+            PersTemp = MinaPers (Mina1 + f)
             if PersTemp < 10 then
               Escreve str(PersTemp), XM + 23, YM + 8, 1, 0
             elseif PersTemp < 100 then
@@ -1918,33 +1818,33 @@ sub Joga
               Escreve str(PersTemp), XM + 11, YM + 8, 1, 0
             end if
           next
-          if (MouseMoveu = 1) and (MouseSobre > -1) then Boneco.Mina = MouseSobre
-          if MouseSobre > -1 and MouseDisparou = 1 then Boneco.Mina = MouseSobre : Tecla = "["
-          XM = ((Boneco.Mina - Mina1) mod 10) * 65 + 80
-          YM = int ((Boneco.Mina - Mina1) / 10) * 40 + (370 - int((Mina2 + 9)/10) * 20)
-          put (XM, YM), GBitmaps(276), (576,66)-(630, 102), trans
+          if (GMMove = 1) and (MouseSobre > -1) then GBoneco.Mina = MouseSobre
+          if MouseSobre > -1 and GMBDown = 1 then GBoneco.Mina = MouseSobre : Tecla = "["
+          XM = ((GBoneco.Mina - Mina1) mod 10) * 65 + 80
+          YM = int ((GBoneco.Mina - Mina1) / 10) * 40 + (370 - int((Mina2 + 9)/10) * 20)
+          put (XM, YM), GBitmap(276), (576,66)-(630, 102), trans
           if MouseWDir = -1 then Tecla = "#"
           if MouseWDir = 1 then Tecla = "@"
           if Tecla <>"" and Tecla <> UltTecla then
             select case Tecla
             case "D"
-              Boneco.Mina += 10
-              if Boneco.Mina >= QuantPers then Boneco.Mina -= 10
+              GBoneco.Mina += 10
+              if GBoneco.Mina >= QuantPers then GBoneco.Mina -= 10
             case "L"
-              Boneco.Mina -= 1
-              if Boneco.Mina < 0 then Boneco.Mina = 0
+              GBoneco.Mina -= 1
+              if GBoneco.Mina < 0 then GBoneco.Mina = 0
             case "U"
-              Boneco.Mina -= 10
-              if Boneco.Mina < 0 then Boneco.Mina += 10
+              GBoneco.Mina -= 10
+              if GBoneco.Mina < 0 then GBoneco.Mina += 10
             case "R"
-              Boneco.Mina += 1
-              if Boneco.Mina >= QuantPers then Boneco.Mina = QuantPers - 1
+              GBoneco.Mina += 1
+              if GBoneco.Mina >= QuantPers then GBoneco.Mina = QuantPers - 1
             case "@"
-              Boneco.Mina -= 100
-              if Boneco.Mina < 0 then Boneco.Mina = 0
+              GBoneco.Mina -= 100
+              if GBoneco.Mina < 0 then GBoneco.Mina = 0
             case "#"
-              Boneco.Mina += 100
-              if Boneco.Mina >= QuantPers then Boneco.Mina = QuantPers - 1
+              GBoneco.Mina += 100
+              if GBoneco.Mina >= QuantPers then GBoneco.Mina = QuantPers - 1
             case "TAB"
               if OpMenu = Editar then
                 LimpaMina
@@ -1952,59 +1852,59 @@ sub Joga
                 MudaStatus Editor
               end if
             case "ESC"
-              Boneco.Mina = 1
+              GBoneco.Mina = 1
               MudaStatus NoMenu
             case "[", "]"
-              XM = MinaPers(Boneco.Mina)
+              XM = MinaPers(GBoneco.Mina)
               IniciaJogo
               IniciaVida
-              Boneco.Mina = XM
+              GBoneco.Mina = XM
               Mina.Tipo = 1
               Iniciado = 0
-              TIMESTART = Clock + 5
+              GTimeStart = Clock + 5
               if OpMenu = Editar then
-                LeMinaOUT XM, 1
+                LoadCustomMineFromFile XM, 1
                 MudaStatus Editor
-                while MouseB = 1 and MouseX <> -1
+                while GMB = 1 and GMX <> -1
                   sleep 1, 1
-                  LeMouse
+                  GetMouseState
                 wend
               else
-                LeMinaOUT XM, 0
+                LoadCustomMineFromFile XM, 0
                 MudaStatus Jogando
               end if
             end select
           end if
         end if
       end select
-    case Jogando, ModoDemo, Testando 'JOGANDO; MODO DEMONSTRAÇÃO; TESTANDO MINA EM EDIÇÃO
-      if Jogo.Status = ModoDemo then
-        'No modo demo, qualquer tecla faz voltar pro menu
-        for F= 1 to 127
+    case Jogando, ModoDemo, Testando ' JOGANDO; MODO DEMONSTRAÇÃO; TESTANDO MINA EM EDIÇÃO
+      if GJogo.Status = ModoDemo then
+        ' No modo demo, qualquer tecla faz voltar pro menu
+        for f= 1 to 127
           if (multikey(f)) then MudaStatus NoMenu
         next
-        'Busca comandos ou direções para modo demo
-        if Boneco.NaFuradeira = 0 and Boneco.NaPicareta = 0 then
+        ' Busca comandos ou direções para modo demo
+        if GBoneco.NaFuradeira = 0 and GBoneco.NaPicareta = 0 then
           Tecla = ProximaTeclaDemo ()
           if Tecla = "ESC" then
             MudaStatus NoMenu
           end if
         end if
       end if
-      'Verifica se acabou o tempo
-      if (jogo.SeqCiclo mod 8 = 0) and (jogo.Ciclo = 0) and (iniciado > 0) and (boneco.morreu = 0) then
-        boneco.Tempo += 1
-        if (boneco.tempo >= mina.tempo) and (mina.tempo > 0) and (Jogo.Status = Jogando) then
-          boneco.morreu = 1
+      ' Verifica se acabou o tempo
+      if (GJogo.SeqCiclo mod 8 = 0) and (GJogo.Ciclo = 0) and (iniciado > 0) and (GBoneco.morreu = 0) then
+        GBoneco.Tempo += 1
+        if (GBoneco.tempo >= mina.tempo) and (mina.tempo > 0) and (GJogo.Status = Jogando) then
+          GBoneco.morreu = 1
         end if
       end if
-      'Verifica Comandos: PAUSAR, MAPA, QUIT e ESC
-      if boneco.morreu = 0 and iniciado = 1 and (Jogo.Status = Jogando or Jogo.Status = Testando) and UltTecla <> Tecla then
+      ' Verifica Comandos: PAUSAR, MAPA, QUIT e ESC
+      if GBoneco.morreu = 0 and iniciado = 1 and (GJogo.Status = Jogando or GJogo.Status = Testando) and UltTecla <> Tecla then
         select case Tecla
         case "M"  'Mapa
-          with boneco
+          with GBoneco
             if (mina.Larg > 24 or mina.Alt > 16) then
-              'Calcula o X inicial da tela
+              ' Calcula o X inicial da tela
               if Mina.Larg <25 or .X<=12 then
                 MapX=0
               elseif .X>= Mina.Larg-12 then
@@ -2012,7 +1912,7 @@ sub Joga
               else
                 MapX=.X-12
               end if
-              'Calcula o Y inicial da tela
+              ' Calcula o Y inicial da tela
               if Mina.Alt <17 or .Y<=8 then
                 MapY=0
               elseif .Y> Mina.Alt-8 then
@@ -2022,26 +1922,26 @@ sub Joga
               end if
               MudaStatus ModoMapa
             else
-              'Som DAME
+              ' Som DAME
               Sound02
               SomEx(6). Tempo = 4
             end if
           end with
-        case "P"  'Pausa
+        case "P" ' Pausa
           MudaStatus Pausado
-        case "ESC"  'ESC
-          if Jogo.Status = Testando then
+        case "ESC" ' ESC
+          if GJogo.Status = Testando then
             LMTEC=""
             LimpaTeclado
             opcao1 = 0
             TurnOffSounds
             while lmtec <> " " and LMTec <> chr(13) and lmtec <> chr(27)
               cls
-              Mensagem 4, 5, TXT (95), "", "", 400, 300, Opcao1
+              Mensagem 4, 5, GText(95), "", "", 400, 300, Opcao1
               LMTec=inkey
-              LeMouse
-              if ((MouseMoveu = 1) or (MouseDisparou = 1)) and (MouseSimNao > 0) then Opcao1 = MouseSimNao - 1
-              if (MouseDisparou = 1) and (MouseSimNao > 0) then LMTec = " "
+              GetMouseState
+              if ((GMMove = 1) or (GMBDown = 1)) and (MouseSimNao > 0) then Opcao1 = MouseSimNao - 1
+              if (GMBDown = 1) and (MouseSimNao > 0) then LMTec = " "
               if (LmTec = c255 + "H") or (LmTec = c255 + "K") or (LmTec = c255 + "M") or (LmTec = c255 + "P") then Opcao1 = 1 - Opcao1
               TrocaTelas
             wend
@@ -2049,34 +1949,34 @@ sub Joga
             if (LmTec <> chr(27)) and (Opcao1 = 0) then EncerraTeste
             LimpaTeclado 1
           else
-            boneco.Morreu = 1
+            GBoneco.Morreu = 1
           end if
-        case "Q"  'Quit
-          LMTEC=""
+        case "Q" ' Quit
+          LMTEC = ""
           LimpaTeclado
           opcao1 = 0
           while lmtec <> " " and LMTec <> chr(13) and lmtec <> chr(27)
             cls
-            Mensagem 4, 5, TXT(57), "", "", 400, 300, Opcao1
+            Mensagem 4, 5, GText(57), "", "", 400, 300, Opcao1
             LMTec=inkey
-            LeMouse
-            if ((MouseMoveu = 1) or (MouseDisparou = 1)) and (MouseSimNao > 0) then Opcao1 = MouseSimNao - 1
-            if (MouseDisparou = 1) and (MouseSimNao > 0) then LMTec = " "
+            GetMouseState
+            if ((GMMove = 1) or (GMBDown = 1)) and (MouseSimNao > 0) then Opcao1 = MouseSimNao - 1
+            if (GMBDown = 1) and (MouseSimNao > 0) then LMTec = " "
             if (LmTec = c255 + "H") or (LmTec = c255 + "K") or (LmTec = c255 + "M") or (LmTec = c255 + "P") then Opcao1 = 1 - Opcao1
             TrocaTelas
-            jogo.seqciclo=(jogo.seqciclo+1) mod 360
+            GJogo.seqciclo = (GJogo.seqciclo + 1) mod 360
           wend
           cls
           if LMTec <> chr(27) and Opcao1 = 0 then
-            jogo.encerra = 1
+            GJogo.encerra = 1
           end if
           LimpaTeclado 1
         end select
       end if
-      if (Jogo.Status0 = Jogo.Status) and (Jogo.Encerra <> 1) then
-        'Conclui movimentação de objetos empurrados
-        if Boneco.Empurrando = 1 then
-          if Boneco.DirAtual = 1 then
+      if (GJogo.Status0 = GJogo.Status) and (GJogo.Encerra <> 1) then
+        ' Conclui movimentação de objetos empurrados
+        if GBoneco.Empurrando = 1 then
+          if GBoneco.DirAtual = 1 then
             Emp1 = Mina.Larg
             Emp2 = 0
             Emp3 = -1
@@ -2085,14 +1985,14 @@ sub Joga
             Emp2 = Mina.Larg
             Emp3 = 1
           end if
-          for F = Emp1 to Emp2 step Emp3
-            with Objeto (F, boneco.Y)
-              if .Empurrando > 0 and .Passo >= Jogo.Passos -1 then
-                Objeto(F + 3 - .Empurrando * 2, boneco.y).Tp = .Tp
-                Objeto(F + 3 - .Empurrando * 2, boneco.y).Passo = 0
-                Objeto(F + 3 - .Empurrando * 2, boneco.y).Empurrando = 0
-                Objeto(F + 3 - .Empurrando * 2, boneco.y).Caindo = 0
-                Objeto(F + 3 - .Empurrando * 2, boneco.y).AntCaindo = 0
+          for f = Emp1 to Emp2 step Emp3
+            with Objeto (f, GBoneco.Y)
+              if .Empurrando > 0 and .Passo >= GJogo.Passos -1 then
+                Objeto(f + 3 - .Empurrando * 2, GBoneco.y).Tp = .Tp
+                Objeto(f + 3 - .Empurrando * 2, GBoneco.y).Passo = 0
+                Objeto(f + 3 - .Empurrando * 2, GBoneco.y).Empurrando = 0
+                Objeto(f + 3 - .Empurrando * 2, GBoneco.y).Caindo = 0
+                Objeto(f + 3 - .Empurrando * 2, GBoneco.y).AntCaindo = 0
                 .Passo = 0
                 .Empurrando = 0
                 .Caindo = 0
@@ -2105,9 +2005,9 @@ sub Joga
           Sound03
         end if
         'Verifica e conclui movimentação e outros comportamentos do boneco
-        with Boneco
+        with GBoneco
           'Se concluiu movimento nesta passagem, zera movimento
-          if .DirAtual > 0 and .Passo = Jogo.Passos then
+          if .DirAtual > 0 and .Passo = GJogo.Passos then
             'Pega ultimo movimento que estava fazendo
             .UltDir= .DirAtual
             'Reposiciona boneco, conforme movimento concluido
@@ -2131,13 +2031,13 @@ sub Joga
             .Passo = 0
           end if
           if Iniciado = 0 then
-            if ((Tecla <> "") and (Tecla <> UltTecla)) or ((Clock >= TIMESTART) and (Jogo.Status <> Testando)) then
+            if ((Tecla <> "") and (Tecla <> UltTecla)) or ((Clock >= GTimeStart) and (GJogo.Status <> Testando)) then
               Iniciado = 1
             end if
           elseif .Morreu = 1 then
             Explode (.x, .y, 2)
             .Morreu = 2
-            if Jogo.Status = ModoDemo then
+            if GJogo.Status = ModoDemo then
               .Morreu = 0
               MudaStatus NoMenu
             end if
@@ -2147,24 +2047,20 @@ sub Joga
             'Verifica se terminou movimento
             if Tecla <> "" and Tecla <> UltTecla then
               'Zera contadores de ciclos
-              Jogo.Ciclo = 0
-              Jogo.SeqCiclo = 0
-              'Se for teste, apenas reinicia
-              if Jogo.Status = Testando then
-                LeMinaOUT -1, 0
+              GJogo.Ciclo = 0
+              GJogo.SeqCiclo = 0
+              if GJogo.Status = Testando then
+                LoadCustomMineFromFile -1, 0
                 Iniciado = 0
                 IniciaVida
-              'Verifica Game Over
-              elseif Boneco.Vidas < 1 then
+              elseif GBoneco.Vidas < 1 then
                 MudaStatus GameOver
-              'Atualiza número de vidas e reinicia mina e boneco
               else
-                'Tira uma vida
-                Boneco.Vidas -= 1
+                GBoneco.Vidas -= 1
                 if Mina.Tipo = 0 then
-                  LeMinaIn Boneco.Mina
+                  LoadMineFromFile GBoneco.Mina
                 else
-                  LeMinaOUT Boneco.Mina, 0
+                  LoadCustomMineFromFile GBoneco.Mina, 0
                 end if
                 Iniciado = 0
                 IniciaVida
@@ -2172,8 +2068,8 @@ sub Joga
             end if
           'Se não pressionou ESC nem estava morto, verifica se está parado em posição de cair
               '(1-parado; 2-não está na escada; 3-não está sobre objeto que o apoie, ou o objeto de baixo está caindo, ou o objeto de baixo mata)
-          elseif Iniciado = 1 and .DirAtual = 0 and .y < Mina.Alt and comport(TpObjeto(objeto(.x, .y).tp).tipo).sobe = 0 and _
-                (comport (TpObjeto (objeto (.x, .y + 1).tp).tipo).apoia = 0 or Objeto(.x, .y + 1).caindo = 1 or comport(tpobjeto(Objeto(.x, .y + 1).tp).tipo).mata = 1) then
+          elseif Iniciado = 1 and .DirAtual = 0 and .y < Mina.Alt and comport(GObjectData(objeto(.x, .y).tp).tipo).sobe = 0 and _
+                (comport (GObjectData (objeto (.x, .y + 1).tp).tipo).apoia = 0 or Objeto(.x, .y + 1).caindo = 1 or comport(GObjectData(Objeto(.x, .y + 1).tp).tipo).mata = 1) then
 
             'Informa queda, eliminando outros movimentos ou ações (ficam perdidas)
             .DirAtual   = 5
@@ -2181,7 +2077,7 @@ sub Joga
             .NaFuradeira  = 0
             .NaPicareta   = 0
             .Passo      = 1
-            if comport(tpobjeto(Objeto(.x, .y + 1).tp).tipo).mata = 1 then .morreu = 1
+            if comport(GObjectData(Objeto(.x, .y + 1).tp).tipo).mata = 1 then .morreu = 1
 
           'Se não está morto, nem pediu pra morrer, nem vai cair, verifica se está usando a picareta
           elseif .NaPicareta > 0 then
@@ -2190,7 +2086,7 @@ sub Joga
             end if
 
             .NaPicareta += 1
-            if .Napicareta >= Jogo.Passos * 2 then
+            if .Napicareta >= GJogo.Passos * 2 then
               .NaPicareta = 0
               Objeto(.x, .y + 1).tp = 0
             end if
@@ -2201,7 +2097,7 @@ sub Joga
             if (.DirFuradeira = 1 and Objeto (.x + 1, .y).caindo = 1)  or (.DirFuradeira = 2 and Objeto (.x - 1, .y).caindo = 1) then
               .Nafuradeira = 0
             end if
-            if .NaFuradeira >= Jogo.Passos * 2 then
+            if .NaFuradeira >= GJogo.Passos * 2 then
               if .dirfuradeira=1 then
                 Objeto (.x + 1, .y).tp = 0
               else
@@ -2209,11 +2105,11 @@ sub Joga
               end if
               .NaFuradeira = 0
               .VirouFuradeira = 0
-            elseif .VirouFuradeira = 0 and .Nafuradeira <= Jogo.Passos then
-              if .DirFuradeira = 1 and Tecla = "L" and comport(TpObjeto(Objeto(.x - 1, .y).tp).tipo).destroi = 2 and Objeto(.x - 1, .y).caindo = 0 then
+            elseif .VirouFuradeira = 0 and .Nafuradeira <= GJogo.Passos then
+              if .DirFuradeira = 1 and Tecla = "L" and comport(GObjectData(Objeto(.x - 1, .y).tp).tipo).destroi = 2 and Objeto(.x - 1, .y).caindo = 0 then
                 .VirouFuradeira = 1
                 .DirFuradeira = 2
-              elseif .dirfuradeira = 2 and tecla = "R" and comport(TpObjeto(Objeto(.x + 1, .y).tp).tipo).destroi = 2 and Objeto(.x + 1, .y).caindo = 0 then
+              elseif .dirfuradeira = 2 and tecla = "R" and comport(GObjectData(Objeto(.x + 1, .y).tp).tipo).destroi = 2 and Objeto(.x + 1, .y).caindo = 0 then
                 .viroufuradeira = 1
                 .dirfuradeira = 1
               end if
@@ -2228,12 +2124,12 @@ sub Joga
             case "U"
               'Se não está no topo e está em uma escada
               .UltDir = 3
-              if .y > 0 and Comport(TpObjeto(Objeto(.x, .y).tp).tipo).sobe = 1 then
-                if comport(TpObjeto(Objeto(.x, .y - 1).tp).tipo).mata = 1 then
+              if .y > 0 and Comport(GObjectData(Objeto(.x, .y).tp).tipo).sobe = 1 then
+                if comport(GObjectData(Objeto(.x, .y - 1).tp).tipo).mata = 1 then
                   .morreu = 1
                 else
                   'Se o objeto de cima está livre
-                  if Comport(TpObjeto(Objeto(.x, .y - 1).tp).tipo).anda > 0 then
+                  if Comport(GObjectData(Objeto(.x, .y - 1).tp).tipo).anda > 0 then
                     'Atualiza direção e inicia movimento
                     .DirAtual = 3
                     .Passo    = 1
@@ -2248,17 +2144,17 @@ sub Joga
               'Se não está no fundo
               .UltDir = 5
               if .y < Mina.Alt then
-                  if comport(TpObjeto(Objeto(.x, .y + 1).tp).tipo).mata = 1 then
+                  if comport(GObjectData(Objeto(.x, .y + 1).tp).tipo).mata = 1 then
                   .morreu = 1
                 else
                   'Se o objeto de baixo for uma escada, então desce
-                  if Comport(TpObjeto(Objeto(.x,.y + 1).tp).tipo).sobe = 1 then
+                  if Comport(GObjectData(Objeto(.x,.y + 1).tp).tipo).sobe = 1 then
                     'Atualiza direção e inicia movimento
                     .DirAtual = 4
                     .UltDir   = 4
                     .Passo    = 1
                   'Se abaixo não for escada, verifica se permite andar
-                  elseif comport(TpObjeto(Objeto(.x, .y + 1).tp).tipo).anda > 0 then
+                  elseif comport(GObjectData(Objeto(.x, .y + 1).tp).tipo).anda > 0 then
                     'Atualiza direção e inicia movimento (queda)
                     .DirAtual = 5
                     .UltDir   = 5
@@ -2275,11 +2171,11 @@ sub Joga
               'Se não está no extremo esquerdo
               if .X > 0 then
                 'Verifica se foi na direção de objeto que mata
-                if comport(TpObjeto(Objeto(.x - 1, .y).tp).tipo).mata = 1 then
+                if comport(GObjectData(Objeto(.x - 1, .y).tp).tipo).mata = 1 then
                   .morreu = 1
                 else
                   'Se o objeto da esquerda permite andar e objeto da esquerda acima não está caindo
-                  if comport(TpObjeto(Objeto(.x - 1, .y).tp).tipo).anda > 0 and Objeto (.x - 1, .y - 1).caindo = 0 then
+                  if comport(GObjectData(Objeto(.x - 1, .y).tp).tipo).anda > 0 and Objeto (.x - 1, .y - 1).caindo = 0 then
                     'Atualiza direção e inicia movimento (queda)
                     .DirAtual = 2
                     .Passo    = 1
@@ -2300,11 +2196,11 @@ sub Joga
               .DirFuradeira = 1
               'Se não está no extremo direito
               if .x < Mina.Larg then
-                if comport(TpObjeto(Objeto(.x + 1, .y).tp).tipo).mata = 1 then
+                if comport(GObjectData(Objeto(.x + 1, .y).tp).tipo).mata = 1 then
                   .morreu = 1
                 else
                   'Se o objeto da direita permite andar e objeto da direita acima não está caindo
-                  if comport(TpObjeto(Objeto(.x + 1, .y).tp).tipo).anda > 0 and Objeto (.x + 1, .y - 1).caindo = 0 then
+                  if comport(GObjectData(Objeto(.x + 1, .y).tp).tipo).anda > 0 and Objeto (.x + 1, .y - 1).caindo = 0 then
                     .DirAtual = 1
                     .Passo    = 1
                     'Pega e limpa objeto do destino, conforme o caso
@@ -2322,7 +2218,7 @@ sub Joga
             'Usar Suporte
             case "Z"
             if UltTecla <> "Z" then
-              if Comport(TpObjeto(Objeto(.x, .y).tp).tipo).apoia = 0 and .ItSuporte > 0 then
+              if Comport(GObjectData(Objeto(.x, .y).tp).tipo).apoia = 0 and .ItSuporte > 0 then
                 Objeto(.x, .y).tp = 81
                 .ItSuporte -= 1
               else
@@ -2332,7 +2228,7 @@ sub Joga
             'Usar Picareta
             case "X"
               if UltTecla <> "X" then
-                if Comport(TpObjeto(Objeto(.x, .y + 1).tp).Tipo).Destroi = 2 and .ItPicareta > 0 then
+                if Comport(GObjectData(Objeto(.x, .y + 1).tp).Tipo).Destroi = 2 and .ItPicareta > 0 then
                   .ItPicareta -= 1
                   .NaPicareta  = 1
                 else
@@ -2342,19 +2238,19 @@ sub Joga
             'Usar Furadeira
             case "C"
               if UltTecla <> "C" then
-                if .ItFuradeira > 0 and ((Comport(TpObjeto(Objeto(.x - 1, .y).tp).Tipo).Destroi = 2 and Objeto(.x - 1, .y).caindo=0) or (Comport(TpObjeto(Objeto(.x + 1, .y).tp).Tipo).Destroi = 2) and Objeto(.x + 1, .y).caindo = 0) then
-                  if .DirFuradeira = 1 and Comport(TpObjeto(Objeto(.x + 1, .y).tp).Tipo).Destroi = 2 and Objeto(.x + 1, .y).caindo = 0 then
+                if .ItFuradeira > 0 and ((Comport(GObjectData(Objeto(.x - 1, .y).tp).Tipo).Destroi = 2 and Objeto(.x - 1, .y).caindo=0) or (Comport(GObjectData(Objeto(.x + 1, .y).tp).Tipo).Destroi = 2) and Objeto(.x + 1, .y).caindo = 0) then
+                  if .DirFuradeira = 1 and Comport(GObjectData(Objeto(.x + 1, .y).tp).Tipo).Destroi = 2 and Objeto(.x + 1, .y).caindo = 0 then
                     .DirFuradeira  = 1
                     .ItFuradeira  -= 1
                     .NaFuradeira   = 1
                     .VirouFuradeira  = 0
-                    Sound07(comport(tpobjeto(objeto(.x + 1, .y).tp).tipo).som)
-                  elseif Comport(TpObjeto(Objeto(.x - 1, .y).tp).Tipo).Destroi = 2 and Objeto(.x - 1,.y).caindo = 0 then
+                    Sound07(comport(GObjectData(objeto(.x + 1, .y).tp).tipo).som)
+                  elseif Comport(GObjectData(Objeto(.x - 1, .y).tp).Tipo).Destroi = 2 and Objeto(.x - 1,.y).caindo = 0 then
                     .DirFuradeira  = 2
                     .ItFuradeira  -= 1
                     .NaFuradeira   = 1
                     .VirouFuradeira  = 0
-                    Sound07(comport(tpobjeto(objeto(.x - 1, .y).tp).tipo).som)
+                    Sound07(comport(GObjectData(objeto(.x - 1, .y).tp).tipo).som)
                   end if
                 else
                   PlaySoundCannotUse
@@ -2363,7 +2259,7 @@ sub Joga
             'Aciona bomba pequena
             case "V"
               if UltTecla <> "V" then
-                if .Itbombinha > 0 and Comport(TpObjeto(Objeto(.x, .y).tp).Tipo).vazio = 1 then
+                if .Itbombinha > 0 and Comport(GObjectData(Objeto(.x, .y).tp).Tipo).vazio = 1 then
                   .ItBombinha       -= 1
                   objeto(.x, .y).Tp    = 77
                   objeto(.x, .y).Passo   = 1
@@ -2374,7 +2270,7 @@ sub Joga
             'Aciona bomba grande
             case "B"
               if UltTecla <> "B" then
-                if .Itbombona > 0 and Comport(TpObjeto(Objeto(.x, .y).tp).Tipo).vazio = 1 then
+                if .Itbombona > 0 and Comport(GObjectData(Objeto(.x, .y).tp).Tipo).vazio = 1 then
                   .ItBombona      -= 1
                   objeto(.x,.y).Tp   = 79
                   objeto(.x,.y).Passo  = 1
@@ -2385,16 +2281,16 @@ sub Joga
             '****DESATIVAR:::
             'Pula a mina
             case "TAB"
-              if ulttecla <> "TAB" and Jogo.Status = Jogando then
-                Jogo.SeqCiclo = 0
+              if ulttecla <> "TAB" and GJogo.Status = Jogando then
+                GJogo.SeqCiclo = 0
                 MudaStatus VenceuMina
                 CalculaBonusTempo
               end if
             end select
           end if
-          'Atualizar oxigenio - Se estiver vivo e no momento de atualizar (jogo.Ciclo=0)
-          if Iniciado = 1 and Jogo.Ciclo = 0 and .morreu = 0 then
-            if (Fundo(.X, .Y) = 0 and (.DirAtual <> 3 or Fundo(.X, .Y - 1) = 0 or .Passo < Jogo.Passos / 2)) or (fundo(.x, .y + 1)=0 and .DirAtual > 3 and .Passo >= Jogo.Passos / 2) then
+          'Atualizar oxigenio - Se estiver vivo e no momento de atualizar (GJogo.Ciclo=0)
+          if Iniciado = 1 and GJogo.Ciclo = 0 and .morreu = 0 then
+            if (Fundo(.X, .Y) = 0 and (.DirAtual <> 3 or Fundo(.X, .Y - 1) = 0 or .Passo < GJogo.Passos / 2)) or (fundo(.x, .y + 1)=0 and .DirAtual > 3 and .Passo >= GJogo.Passos / 2) then
               if .Oxigenio > 10 then .NoOxigenio = 1
               .Oxigenio -= 1
               if .Oxigenio < 0 then
@@ -2412,10 +2308,10 @@ sub Joga
               if .Oxigenio < 10 then .Oxigenio += 1
             end if
           end if
-        end with 'Boneco
+        end with 'GBoneco
         'Verifica Movimentação dos Objetos
         if Iniciado = 1 then
-          with Boneco
+          with GBoneco
             'Se estiver indo para a direita, faz a leitura ao contrário
             if .diratual = 1 or (.DirAtual = 0 and .UltDir = 1) then
               Emp1 = Mina.Larg
@@ -2428,43 +2324,43 @@ sub Joga
             end if
           end with
           'Roda todos os objetos verificando-os   (1 a 1)
-          for F = Emp1 to Emp2 step Emp3
-            for G = Mina.Alt to 0 step -1
-              with Objeto(F, G)
+          for f = Emp1 to Emp2 step Emp3
+            for g = Mina.Alt to 0 step -1
+              with Objeto(f, g)
                 'Verifica se há movimento
                 if .Passo > 0 or .empurrando > 0 then
                   'Dá sequencia
                   .Passo += 1
                   if .tp >= 77 and .Tp <= 80 then
                     .Tp = 77 + 2 * int((.tp - 77) / 2) + (.passo mod 2)
-                    if .Passo >= Jogo.Passos * 6 then
+                    if .Passo >= GJogo.Passos * 6 then
                       Explode (f, g, int((.tp - 77) / 2) )
                     end if
                   end if
                   'Verifica se é queda e se com esse passo atingiu o boneco, que estava subindo
-                  if .Caindo = 1 and Boneco.X = F and Boneco.Y = G + 2 and Boneco.DirAtual = 3 and (Boneco.Passo + .Passo >= Jogo.Passos) then
-                    if Boneco.Morreu = 0 then
-                      Boneco.Morreu = 1
+                  if .Caindo = 1 and GBoneco.X = f and GBoneco.Y = g + 2 and GBoneco.DirAtual = 3 and (GBoneco.Passo + .Passo >= GJogo.Passos) then
+                    if GBoneco.Morreu = 0 then
+                      GBoneco.Morreu = 1
                       .Passo -= 1
                     end if
                   end if
                   'Verifica se concluiu movimento (exceto bombas)
-                  if .Passo = Jogo.Passos and (.tp < 77 or .tp > 80)then
+                  if .Passo = GJogo.Passos and (.tp < 77 or .tp > 80)then
                     'conclui queda
                     if .Caindo = 1 then
-                      Objeto(F, G + 1).AntCaindo  = 1 'informa que ciclo terminou, mas era queda
-                      Objeto(F, G + 1).Tp     = .Tp
-                      Objeto(F, G + 1).Passo    = 0
-                      Objeto(F, G + 1).Empurrando = 0
-                      Objeto(F, G + 1).Caindo   = 0
+                      Objeto(f, g + 1).AntCaindo  = 1 'informa que ciclo terminou, mas era queda
+                      Objeto(f, g + 1).Tp     = .Tp
+                      Objeto(f, g + 1).Passo    = 0
+                      Objeto(f, g + 1).Empurrando = 0
+                      Objeto(f, g + 1).Caindo   = 0
                       .AntCaindo  = 0
                       .Passo    = 0
                       .Empurrando = 0
                       .Caindo   = 0
                       .Tp     = 0
                       'Verifica se a queda do objeto terminou, ou seja, chocou-se sobre outro objeto
-                      if objeto(f, g + 2).caindo = 0 and comport(tpobjeto(objeto(f, g + 2).tp).tipo).vazio = 0 then
-                        Toca(comport(tpobjeto(objeto(f, g + 1).tp).tipo).som, comport(tpobjeto(objeto(f, g + 2).tp).tipo).som) = 1
+                      if objeto(f, g + 2).caindo = 0 and comport(GObjectData(objeto(f, g + 2).tp).tipo).vazio = 0 then
+                        Toca(comport(GObjectData(objeto(f, g + 1).tp).tipo).som, comport(GObjectData(objeto(f, g + 2).tp).tipo).som) = 1
                       end if
                     end if
                   end if
@@ -2472,21 +2368,21 @@ sub Joga
                 'Verifica se o objeto já estava caindo
                 elseif .AntCaindo = 1 then
                   'Verifica se para de cair (cai sobre apoio)
-                  if Comport(TpObjeto(Objeto(f, g + 1).Tp).Tipo).Apoia = 1 then
+                  if Comport(GObjectData(Objeto(f, g + 1).Tp).Tipo).Apoia = 1 then
                     .AntCaindo = 0
                   'Verifica se cai sobre o boneco
-                  elseif Boneco.Morreu = 0 and (Boneco.Y = G + 1 and ((Boneco.X = F and Boneco.DirAtual < 4 and (Boneco.DirAtual = 0 or Boneco.Passo < int((Jogo.Passos - 1) * .8))) or _
-                  (Boneco.X = F - 1 and Boneco.DirAtual = 1) or (Boneco.X = F + 1 and Boneco.DirAtual = 2))) then
-                    Boneco.Morreu = 1
+                  elseif GBoneco.Morreu = 0 and (GBoneco.Y = g + 1 and ((GBoneco.X = f and GBoneco.DirAtual < 4 and (GBoneco.DirAtual = 0 or GBoneco.Passo < int((GJogo.Passos - 1) * .8))) or _
+                  (GBoneco.X = f - 1 and GBoneco.DirAtual = 1) or (GBoneco.X = f + 1 and GBoneco.DirAtual = 2))) then
+                    GBoneco.Morreu = 1
                   else  'Se não cai sobre apoio nem sobre o boneco, continua caindo
                     .Caindo = 1
                     .Passo  = 1
                   end if
                 'Se não estava caindo, verifica se começa a cair (se não está apoiado por objeto ou pelo boneco)
-                elseif Comport(TpObjeto(.tp).Tipo).Cai = 1 and G < Mina.Alt and Comport(TpObjeto(Objeto(F, G + 1).tp).Tipo).Apoia = 0 and _
-                Objeto (F - 1,G + 1).Empurrando <> 1 and Objeto (F + 1, G + 1).Empurrando <> 2 then
-                  if boneco.morreu = 0 and (Boneco.Y = g + 1 and (Boneco.X = F or (Boneco.X = F - 1 and Boneco.DirAtual = 1) or _
-                  (Boneco.X = F + 1 and Boneco.DirAtual = 2))) then
+                elseif Comport(GObjectData(.tp).Tipo).Cai = 1 and g < Mina.Alt and Comport(GObjectData(Objeto(f, g + 1).tp).Tipo).Apoia = 0 and _
+                Objeto (f - 1,g + 1).Empurrando <> 1 and Objeto (f + 1, g + 1).Empurrando <> 2 then
+                  if GBoneco.morreu = 0 and (GBoneco.Y = g + 1 and (GBoneco.X = f or (GBoneco.X = f - 1 and GBoneco.DirAtual = 1) or _
+                  (GBoneco.X = f + 1 and GBoneco.DirAtual = 2))) then
                     .AntCaindo = 0
                   else  'Não cai
                     .Caindo = 1
@@ -2497,16 +2393,15 @@ sub Joga
             next
           next
         end if
-
         if Iniciado = 0 and mina.tesouros > 0 then
           Desenha
-          if Jogo.Status = Testando then
-            Mensagem 1, 2, TXT(60), TXT(96), ""
+          if GJogo.Status = Testando then
+            Mensagem 1, 2, GText(60), GText(96), ""
           else
-            Mensagem 1, 2, TXT(60), TXT (61) & " . . . " & str(int (TIMESTART - Clock + 1)), ""
+            Mensagem 1, 2, GText(60), GText(61) & " . . . " & str(int (GTimeStart - Clock + 1)), ""
           end if
-          for F = 0 to 9
-            Msg(f).Ciclo = 0
+          for f = 0 to 9
+            GMessage(f).Ciclo = 0
           next
         else
           Sound08
@@ -2515,28 +2410,24 @@ sub Joga
       else
         TurnOffSounds
       end if
-
-    case Pausado 'PAUSA NO JOGO
-      'desenha fundo e LOGO
+    case Pausado
       DesFundo
-      Mensagem 7, 2, TXT(62), TXT(63), ""
+      Mensagem 7, 2, GText(62), GText(63), ""
       if tecla <> "" and tecla <> ultTecla then
-        Jogo.status = Jogo.StatusAnt
+        GJogo.status = GJogo.StatusAnt
       end if
-
-    case GameOver 'GAME OVER
-
+    case GameOver
       Desenha
-      GenerateAndPlaySoundGameOver
+      PlaySoundGameOver
       if XM < 30 then
-        put ( 240 + XM * 3, XM * 8.5), GBitmaps(212), (0, 0) - (112, 28), trans
-        put ( 452 - xm * 3, 580- xm * 8.5), GBitmaps(212), (18, 33) - (127, 63), trans
+        put ( 240 + XM * 3, XM * 8.5), GBitmap(212), (0, 0) - (112, 28), trans
+        put ( 452 - xm * 3, 580- xm * 8.5), GBitmap(212), (18, 33) - (127, 63), trans
         XM += 1
       elseif XM < 60 then
-        put (334 + rnd * (60 - XM), 268+rnd * (60 - XM)), GBitmaps(212), trans
+        put (334 + rnd * (60 - XM), 268 + rnd * (60 - XM)), GBitmap(212), trans
         XM += 1
       elseif XM < 2000 then
-        put (334 + rnd * (260-XM)/75, 268 + rnd * (260-XM)/75), GBitmaps(212), trans
+        put (334 + rnd * (260-XM) / 75, 268 + rnd * (260 - XM) / 75), GBitmap(212), trans
         XM += 1
       else
         Sound09
@@ -2544,7 +2435,7 @@ sub Joga
       end if
       if tecla <> "" and tecla <> ultTecla then
         Sound09
-        PosTop10 = VerificaRecorde ()
+        PosTop10 = VerificaRecorde()
         if PosTop10 > 0 then
           MudaStatus Top10
         else
@@ -2552,11 +2443,11 @@ sub Joga
         end if
         IniciaJogo
         IniciaVida
-        TTDemo1 = Clock
-        VRed=int(rnd*2)
-        VGreen=int(rnd*2)
-        VBlue=int(rnd*2)
-        if VRed+VGreen+VBlue=0 then VBlue=1
+        GDemoTimer = Clock
+        GRed = int(rnd * 2)
+        GGreen = int(rnd * 2)
+        GBlue = int(rnd * 2)
+        if GRed + GGreen + GBlue = 0 then GBlue = 1
       end if
 
     case ModoMapa 'Modo de MAPA
@@ -2576,14 +2467,14 @@ sub Joga
       case ""
         'Não faz nada
       case else
-        if UltTecla <> Tecla then Jogo.Status = Jogo.StatusAnt
+        if UltTecla <> Tecla then GJogo.Status = GJogo.StatusAnt
       end select
       'Verifica se acabou o tempo
-      if (jogo.SeqCiclo mod 5=0) and (jogo.Ciclo=0) and (iniciado > 0) and (boneco.morreu = 0) then
-        boneco.Tempo += 1
-        if (boneco.tempo>=mina.tempo) and (mina.tempo>0) then
-          boneco.morreu = 1
-          Jogo.status = Jogo.StatusAnt
+      if (GJogo.SeqCiclo mod 5=0) and (GJogo.Ciclo=0) and (iniciado > 0) and (GBoneco.morreu = 0) then
+        GBoneco.Tempo += 1
+        if (GBoneco.tempo>=mina.tempo) and (mina.tempo>0) then
+          GBoneco.morreu = 1
+          GJogo.status = GJogo.StatusAnt
         end if
       end if
       Desenha
@@ -2593,75 +2484,75 @@ sub Joga
       line (5,554)-(542,593),point(5,554),bf
       line(2,597)-(545,597),point(2,597)
       line(110,554)-(110,593),point(2,551)
-      Escreve TXT(64), 10, 560, 0, 0
-      Escreve TXT(65), 127, 552, 0, 0
-      Escreve TXT(66), 115, 572, 0, 0
+      Escreve GText(64), 10, 560, 0, 0
+      Escreve GText(65), 127, 552, 0, 0
+      Escreve GText(66), 115, 572, 0, 0
       if int (Clock * 10) mod 5 <=2 then
-        Mensagem 2, 0, TXT(64), "", "", 750 - LargTexto (txt(64), 1)/2, 500
+        Mensagem 2, 0, GText(64), "", "", 750 - LargTexto (GText(64), 1)/2, 500
       end if
 
-    case Instruc 'FreeBasic Miner?
+    case Instruc
       DesFundo
-      line (0, 565) - (799, 599), rgb(48 * VRed, 48 * VGreen, 48 * VBlue), BF
-      if (ulttecla <> tecla and Tecla <>"") or (MouseDisparou = 1) then
+      line (0, 565) - (799, 599), rgb(48 * GRed, 48 * GGreen, 48 * GBlue), BF
+      if (ulttecla <> tecla and Tecla <>"") or (GMBDown = 1) then
         MudaStatus NoMenu
-        Jogo.Ciclo=0
-        Jogo.SeqCiclo=0
+        GJogo.Ciclo=0
+        GJogo.SeqCiclo=0
       end if
       PutLogo 290, 40
-      EscreveCentro TXT(67), 570, 1, 1
-      EscreveCentro TXT(68), 150
-      EscreveCentro TXT(69), 180
-      EscreveCentro TXT(70), 210
-      EscreveCentro TXT(71), 240
-      EscreveCentro TXT(72), 270
-      EscreveCentro TXT(73), 305
-      EscreveCentro TXT(74), 340,1
-      put (370,430), GBitmaps(252), trans
-      EscreveCentro TXT(75), 480, 1, 1
+      EscreveCentro GText(67), 570, 1, 1
+      EscreveCentro GText(68), 150
+      EscreveCentro GText(69), 180
+      EscreveCentro GText(70), 210
+      EscreveCentro GText(71), 240
+      EscreveCentro GText(72), 270
+      EscreveCentro GText(73), 305
+      EscreveCentro GText(74), 340,1
+      put (370,430), GBitmap(252), trans
+      EscreveCentro GText(75), 480, 1, 1
 
     case VenceuMina 'CONCLUIU A MINA
       Desenha
-      if Jogo.StatusAnt = Testando then
-        F = PerguntaSeEncerraTeste
+      if GJogo.StatusAnt = Testando then
+        f = PerguntaSeEncerraTeste
       else
         if mina.Tipo = 0 then
-          if Boneco.Mina < Jogo.NumMinas then
-            Mensagem 2, 6, TXT(76), TXT(77) & ": " & str(PtBonus), ""
+          if GBoneco.Mina < GJogo.NumMinas then
+            Mensagem 2, 6, GText(76), GText(77) & ": " & str(PtBonus), ""
           else
-            Mensagem 2, 6, TXT(76), TXT(77) & ": " & str(PtBonus), TXT(94) & ": " & str(boneco.Vidas) & " x 1000 = " & str(boneco.vidas * 1000)
+            Mensagem 2, 6, GText(76), GText(77) & ": " & str(PtBonus), GText(94) & ": " & str(GBoneco.Vidas) & " x 1000 = " & str(GBoneco.Vidas * 1000)
           end if
         else
-          Mensagem 2, 6, TXT(78), TXT(77) & ": " & str(PtBonus), TXT(79) & str(Boneco.Pontos + PtBonus)
+          Mensagem 2, 6, GText(78), GText(77) & ": " & str(PtBonus), GText(79) & str(GBoneco.Pontos + PtBonus)
         end if
         if tecla <> "" and tecla <> ultTecla then
           if mina.Tipo = 0 then
-            if Boneco.Mina = Jogo.NumMinas then
+            if GBoneco.Mina = GJogo.NumMinas then
               MudaStatus VenceuJogo
               QtdNotasVenceu = 0
               UltNotaGameOver = 0
-              Jogo.SeqCiclo =- 1
+              GJogo.SeqCiclo =- 1
             else
-              Boneco.Mina +=1
-              if Boneco.Mina > Jogo.MaxAlcancada then
-                Jogo.MaxAlcancada  = Boneco.Mina
+              GBoneco.Mina +=1
+              if GBoneco.Mina > GJogo.MaxAlcancada then
+                GJogo.MaxAlcancada  = GBoneco.Mina
                 RegravaConfig
               end if
               IniciaVida
               MudaStatus Jogando
-              LeMinaIn Boneco.Mina
+              LoadMineFromFile GBoneco.Mina
               Iniciado=0
-              TIMESTART = Clock + 5
+              GTimeStart = Clock + 5
             end if
-            Boneco.Pontos += PtBonus
-            if Boneco.Mina = Jogo.NumMinas then Boneco.Pontos += Boneco.Vidas * 1000
+            GBoneco.Pontos += PtBonus
+            if GBoneco.Mina = GJogo.NumMinas then GBoneco.Pontos += GBoneco.Vidas * 1000
           else
             MudaStatus NoMenu
           end if
         end if
       end if
 
-    case VenceuJogo 'VENCEU O JOGO
+    case VenceuJogo
       for f=0 to 19
         g=int(rnd*100)
         h=int(rnd*60)
@@ -2669,10 +2560,10 @@ sub Joga
         Fundo (g,h)=1
         objeto (g,h).tp = 40 + int(rnd*16)
       next
-      GenerateAndPlaySoundGameWon
+      PlaySoundGameWon
       Desenha
-      jogo.Ciclo=jogo.passos-1
-      Mensagem 0, 12, TXT(80), TXT(81), ""
+      GJogo.Ciclo=GJogo.passos-1
+      Mensagem 0, 12, GText(80), GText(81), ""
       if tecla <> "" and tecla <> ultTecla then
         Sound10
         PosTop10 = VerificaRecorde()
@@ -2684,12 +2575,12 @@ sub Joga
         IniciaJogo
         IniciaVida
         LimpaMina
-        TTDemo1 = Clock
-        VRed=int(rnd*2)
-        VGreen=int(rnd*2)
-        VBlue=int(rnd*2)
-        if VRed+VGreen+VBlue=0 then VBlue=1
-        Jogo.SeqCiclo=0
+        GDemoTimer = Clock
+        GRed = int(rnd * 2)
+        GGreen = int(rnd * 2)
+        GBlue = int(rnd * 2)
+        if GRed + GGreen + GBlue = 0 then GBlue = 1
+        GJogo.SeqCiclo = 0
       end if
 
     case Top10 'TOP 10
@@ -2700,32 +2591,32 @@ sub Joga
       'Opções:
       EscreveCentro "Top 10", 140, 2, 1
       for f = -1 to 9
-        line(197, 200 + f * 30) - step (394, 0), rgb(128, 128, 128)
+        line(197, 200 + f * 30)-step(394, 0), rgb(128, 128, 128)
       next
       if PosTop10 > 0 then
-        line(187, 175 + (PosTop10 - 1) * 30) - step (413, 31), rgb(80 + 80 * VRed, 80 + 80 * VGreen, 80 + 80 * VBlue), bf
-        line(190, 178 + (PosTop10 - 1) * 30) - step (407, 25), rgb(48 + 48 * VRed, 48 + 48 * VGreen, 48 + 48 * VBlue), bf
+        line(187, 175 + (PosTop10 - 1) * 30)-step(413, 31), rgb(80 + 80 * GRed, 80 + 80 * GGreen, 80 + 80 * GBlue), bf
+        line(190, 178 + (PosTop10 - 1) * 30)-step(407, 25), rgb(48 + 48 * GRed, 48 + 48 * GGreen, 48 + 48 * GBlue), bf
       end if
       for f=0 to 9
-        g = len (Toppt(f).nome)
-        while LargTexto (left(Toppt(f).nome, g), 1) > 399 - ((largTexto ("0",1)+2) * (1+len (str(Toppt(f).Pontos))))
+        g = len(GBestScore(f).Nome)
+        while LargTexto (left(GBestScore(f).Nome, g), 1) > 399 - ((largTexto ("0",1)+2) * (1+len(str(GBestScore(f).Pontos))))
           g -= 1
         wend
-        Escreve left(toppt(f).nome, g), 198, 180 + f * 30, 1, 0
-        Escreve str(toppt (f).pontos), 602 - ((largTexto ("0",1) +2)* ( 1 + len (str(Toppt(f).Pontos)))), 180 + f * 30, 1, 0
+        Escreve left(GBestScore(f).Nome, g), 198, 180 + f * 30, 1, 0
+        Escreve str(GBestScore (f).Pontos), 602 - ((largTexto ("0",1) +2)* ( 1 + len(str(GBestScore(f).Pontos)))), 180 + f * 30, 1, 0
       next
 
       if ConfirmDel = 0 then
-        EscreveCentro TXT(82), 520, 1, 0
+        EscreveCentro GText(82), 520, 1, 0
       elseif ConfirmDel = 1 then
-        Mensagem 1, 5, TXT(83), TXT(84), "", , , Opcao1
+        Mensagem 1, 5, GText(83), GText(84), "", , , Opcao1
       elseif ConfirmDel = 2 then
-        Mensagem 0, 5, TXT(90), TXT(91), "", , , Opcao1
+        Mensagem 0, 5, GText(90), GText(91), "", , , Opcao1
       end if
 
-      if ((MouseMoveu = 1) or (MouseDisparou = 1)) and (MouseSimNao > 0) then Opcao1 = MouseSimNao - 1
+      if ((GMMove = 1) or (GMBDown = 1)) and (MouseSimNao > 0) then Opcao1 = MouseSimNao - 1
 
-      if (Tecla <> UltTecla and Tecla <> "") or (MouseDisparou = 1) then
+      if (Tecla <> UltTecla and Tecla <> "") or (GMBDown = 1) then
         if ConfirmDel = 0 then
           if Tecla = "<" then
             ConfirmDel = 1
@@ -2739,7 +2630,7 @@ sub Joga
             ConfirmDel = 0
           elseif (Tecla = "U") or (Tecla = "D") or (Tecla = "R") or (Tecla = "L") then
             Opcao1 = 1 - Opcao1
-          elseif (Tecla ="[") or (Tecla = "]") or (MouseDisparou = 1) then
+          elseif (Tecla ="[") or (Tecla = "]") or (GMBDown = 1) then
             select case ConfirmDel
             case 1
               if Opcao1 = 0 then
@@ -2751,7 +2642,7 @@ sub Joga
 
             case 2
               if Opcao1 = 0 then
-                Jogo.MaxAlcancada = 1
+                GJogo.MaxAlcancada = 1
                 RegravaConfig
                 ConfirmDel = 0
               else
@@ -2764,15 +2655,15 @@ sub Joga
 
     case Editor
       Edita
-      if Jogo.Status = Editor then Desenha
+      if GJogo.Status = Editor then Desenha
 
     end select
     'Calcula e mostra FPS
     Quadros += 1
-    Timer2 = Clock
+    GTimer2 = Clock
     'Escreve Right ("0000" + str(UltQuadros), 4) , 0, 0, 1, 1
-    if int(Timer2) <> int (timer1) then
-      timer1 = Timer2
+    if int(GTimer2) <> int (GTimer1) then
+      GTimer1 = GTimer2
       UltQuadros = Quadros
       Quadros = 0
     end if
@@ -2780,91 +2671,89 @@ sub Joga
     TrocaTelas
 TerminaCiclo:
   wend
-  DEBUG_LOG("Exit main procedure")
+  DEBUG_LOG("Exit game procedure")
 end sub
 
-'Boneco recolhe pedras ou outros objetos
-
-sub PegaObj (POX as integer, POY as integer)
-  with boneco
-    select case TpObjeto (Objeto(POX,POY).TP).Item
+' Boneco recolhe pedras ou outros objetos
+sub PegaObj(POX as integer, POY as integer)
+  with GBoneco
+    select case GObjectData(Objeto(POX, POY).TP).Item
     case 1
-      .ItOxigenio+=1
+      .ItOxigenio += 1
       Sound11
     case 2
-      .ItSuporte+=1
+      .ItSuporte += 1
       Sound11
     case 3
-      .ItPicareta+=1
+      .ItPicareta += 1
       Sound11
     case 4
-      .ItFuradeira+=1
+      .ItFuradeira += 1
       Sound11
     case 5
-      .ItBombinha+=1
+      .ItBombinha += 1
       Sound11
     case 6
-      .ItBombona+=1
+      .ItBombona += 1
       Sound11
     'Recolhe tesouros:
     case 7 to 22
       Sound12
-      VeSeGanhaVida PontoTesouro(TpObjeto (Objeto(POX, POY).TP).Item)
-      MarcaPt (PontoTesouro(TpObjeto (Objeto(POX, POY).TP).Item), POX, POY)
-      .Pontos += PontoTesouro(TpObjeto (Objeto(POX, POY).TP).Item)
+      VeSeGanhaVida PontoTesouro(GObjectData(Objeto(POX, POY).TP).Item)
+      MarcaPt(PontoTesouro(GObjectData(Objeto(POX, POY).TP).Item), POX, POY)
+      .Pontos += PontoTesouro(GObjectData(Objeto(POX, POY).TP).Item)
       Mina.Tesouros -= 1
       if Mina.Tesouros = 0 then
-        Jogo.SeqCiclo = 0
-        if jogo.status = Jogando or Jogo.Status = Testando then 'Termina a fase
-          Jogo.StatusAnt = Jogo.Status
+        GJogo.SeqCiclo = 0
+        if GJogo.status = Jogando or GJogo.Status = Testando then 'Termina a fase
+          GJogo.StatusAnt = GJogo.Status
           MudaStatus VenceuMina
           CalculaBonusTempo
-        else 'Termina a demonstração
+        else ' Termina a demonstração
           MudaStatus NoMenu
-          VRed = int(rnd*2)
-          VGreen = int(rnd*2)
-          VBlue = int(rnd*2)
-          if VRed + VGreen + VBlue = 0 then VBlue = 1
+          GRed = int(rnd * 2)
+          GGreen = int(rnd * 2)
+          GBlue = int(rnd * 2)
+          if GRed + GGreen + GBlue = 0 then GBlue = 1
         end if
       end if
     end select
   end with
   'Limpa o objeto
-  if Objeto(POX, POY).Tp <77 or Objeto(POX, POY).Tp > 80 then
-    if Comport(TpObjeto(Objeto(POX, POY).Tp).Tipo).Anda=1then
-      Objeto(POX,POY).Tp=0
+  if Objeto(POX, POY).Tp < 77 or Objeto(POX, POY).Tp > 80 then
+    if Comport(GObjectData(Objeto(POX, POY).Tp).Tipo).Anda = 1 then
+      Objeto(POX,POY).Tp = 0
     end if
-    Objeto(POX,POY).Caindo=0
-    Objeto(POX,POY).AntCaindo=0
-    Objeto(POX,POY).Empurrando=0
-    Objeto(POX,POY).Passo=0
+    Objeto(POX,POY).Caindo = 0
+    Objeto(POX,POY).AntCaindo = 0
+    Objeto(POX,POY).Empurrando = 0
+    Objeto(POX,POY).Passo = 0
   end if
 end sub
 
-'Verifica possibilidade e inicia o empurrar de objetos
-
+' Verifica possibilidade e inicia o empurrar de objetos
 function EmpurraObj (byval POX as integer, byval POY as integer, byval MDir as integer, byval Peso as integer, byval Quant as integer) as integer
   dim as integer Resultado, XR, PesoTemp
-  Resultado= Comport(TpObjeto(objeto(POX, POY).Tp).Tipo).PEmpurra
-  XR= 3 - (MDir * 2)
+  Resultado= Comport(GObjectData(objeto(POX, POY).Tp).Tipo).PEmpurra
+  XR = 3 - (MDir * 2)
   'Antes, verifica se o objeto não está caindo nem vai começar a cair agora
-  if (Comport(TpObjeto(Objeto(POX, POY).tp).Tipo).Cai =1 and POY < Mina.Alt and Comport(TpObjeto(Objeto(POX, POY+1).tp).Tipo).Apoia=0) or Objeto (POX, POY).Caindo=1 then
-    Resultado=5
+  if (Comport(GObjectData(Objeto(POX, POY).tp).Tipo).Cai = 1 and POY < Mina.Alt and Comport(GObjectData(Objeto(POX, POY + 1).tp).Tipo).Apoia = 0) or Objeto (POX, POY).Caindo = 1 then
+    Resultado = 5
   else
     'Só faz verificação se ainda não tiver chegado ao canto da mina
-    if POX >0 and POX < Mina.Larg then
+    if POX > 0 and POX < Mina.Larg then
       if Resultado + Peso > 2 then
         Resultado = 3
       elseif Resultado = 2 then
-        if Quant=1 and Comport(TpObjeto(objeto(POX + XR, POY).Tp).Tipo).Vazio=1 and Objeto(POX + XR, POY - 1).caindo=0 then
+        if Quant = 1 and Comport(GObjectData(objeto(POX + XR, POY).Tp).Tipo).Vazio = 1 and Objeto(POX + XR, POY - 1).caindo = 0 then
           Resultado = 2
         else
           Resultado = 3
         end if
-      elseif Resultado =1 then
-        if Quant=1 then
-          if Comport(TpObjeto(objeto(POX + XR, POY).Tp).Tipo).Vazio=1 and Objeto(POX + XR, POY - 1).caindo=0 then
-            Resultado=1
+      elseif Resultado = 1 then
+        if Quant = 1 then
+          if Comport(GObjectData(objeto(POX + XR, POY).Tp).Tipo).Vazio = 1 and Objeto(POX + XR, POY - 1).caindo = 0 then
+            Resultado = 1
           else
             PesoTemp = EmpurraObj (POX + XR, POY, MDir, 1, 2)
             if PesoTemp <= 1 then
@@ -2874,7 +2763,7 @@ function EmpurraObj (byval POX as integer, byval POY as integer, byval MDir as i
             end if
           end if
         elseif quant = 2 and peso < 2 then
-          if Comport(TpObjeto(objeto(POX + XR, POY).Tp).Tipo).Vazio=1 and Objeto(POX + XR, POY - 1).caindo=0 then
+          if Comport(GObjectData(objeto(POX + XR, POY).Tp).Tipo).Vazio = 1 and Objeto(POX + XR, POY - 1).caindo = 0 then
             Resultado = 1
           else
             Resultado = 3
@@ -2882,11 +2771,11 @@ function EmpurraObj (byval POX as integer, byval POY as integer, byval MDir as i
         else
           Resultado = 3
         end if
-      elseif Resultado =0 then
-        if Peso > 0 and Quant >2 then
+      elseif Resultado = 0 then
+        if Peso > 0 and Quant > 2 then
           Resultado = 3
         else
-          if Comport(TpObjeto(objeto(POX + XR, POY).Tp).Tipo).Vazio=1 and Objeto(POX + XR, POY - 1).caindo=0 then
+          if Comport(GObjectData(objeto(POX + XR, POY).Tp).Tipo).Vazio = 1 and Objeto(POX + XR, POY - 1).caindo = 0 then
             Resultado = Peso
           else
             PesoTemp = EmpurraObj (POX + XR, POY, MDir, Peso, Quant + 1)
@@ -2909,9 +2798,8 @@ function EmpurraObj (byval POX as integer, byval POY as integer, byval MDir as i
   return Resultado
 end function
 
-'Inicia uma explosao (bomba ou morte do boneco)
-
-sub Explode (byval EXX as integer, byval EXY as integer, byval XTam as integer)
+' Inicia uma explosao (bomba ou morte do boneco)
+sub Explode(byval EXX as integer, byval EXY as integer, byval XTam as integer)
   dim as integer LF, LG, NTam
   NTam=XTam
   Sound13(XTam+1)
@@ -2922,25 +2810,25 @@ sub Explode (byval EXX as integer, byval EXY as integer, byval XTam as integer)
       with Objeto(EXX+LF,EXY+LG)
         if .Tp >=77 and .Tp<=80 then
           Explode (EXX+LF, EXY+LG, int((.tp-77)/2))
-        elseif Comport(TpObjeto(.Tp).Tipo).Destroi>0 then
+        elseif Comport(GObjectData(.Tp).Tipo).Destroi>0 then
           .Tp=0
         end if
       end with
     next
   next
-  with Boneco
+  with GBoneco
     if .morreu=0 and .x >= EXX-2 and .X <=EXX+2 then
-      if (.X =EXX-2 and .DirAtual=1 and .Passo>=jogo.Passos * .4) or (.X=EXX-1 and (.dirAtual<>2 or .Passo<=Jogo.Passos * .6)) or .x=EXX or (.x=EXX+1 and (.diratual<>1 or .Passo<=Jogo.Passos * .6)) or (.X =EXX+2 and .DirAtual=2 and .Passo>=jogo.Passos * .4) then
+      if (.X =EXX-2 and .DirAtual=1 and .Passo>=GJogo.Passos * .4) or (.X=EXX-1 and (.dirAtual<>2 or .Passo<=GJogo.Passos * .6)) or .x=EXX or (.x=EXX+1 and (.diratual<>1 or .Passo<=GJogo.Passos * .6)) or (.X =EXX+2 and .DirAtual=2 and .Passo>=GJogo.Passos * .4) then
         if XTam=0 then
-          if (.Y =EXY-1 and .DirAtual>3 and .Passo>=jogo.Passos * .4) or (.Y=EXY and (.dirAtual<3 or .Passo<=Jogo.Passos * .6)) or (.Y =EXY+1 and .DirAtual=3 and .Passo>=jogo.Passos *.3) then .Morreu=1
+          if (.Y =EXY-1 and .DirAtual>3 and .Passo>=GJogo.Passos * .4) or (.Y=EXY and (.dirAtual<3 or .Passo<=GJogo.Passos * .6)) or (.Y =EXY+1 and .DirAtual=3 and .Passo>=GJogo.Passos *.3) then .Morreu=1
         else
-          if (.Y =EXY-2 and .DirAtual>3 and .Passo>=jogo.Passos * .4) or (.Y=EXY-1 and (.dirAtual<>3 or .Passo<=Jogo.Passos * .6)) or .Y=EXY or (.Y=EXY+1 and (.diratual<4 or .Passo<=Jogo.Passos * .6)) or (.Y =EXY+2 and .DirAtual=3 and .Passo>=jogo.Passos * .4) then .Morreu=1
+          if (.Y =EXY-2 and .DirAtual>3 and .Passo>=GJogo.Passos * .4) or (.Y=EXY-1 and (.dirAtual<>3 or .Passo<=GJogo.Passos * .6)) or .Y=EXY or (.Y=EXY+1 and (.diratual<4 or .Passo<=GJogo.Passos * .6)) or (.Y =EXY+2 and .DirAtual=3 and .Passo>=GJogo.Passos * .4) then .Morreu=1
         end if
       end if
     end if
   end with
-  Jogo.UltExplosao = (Jogo.UltExplosao + 1) mod 11
-  with Explosao(Jogo.UltExplosao)
+  GJogo.UltExplosao = (GJogo.UltExplosao + 1) mod 11
+  with Explosao(GJogo.UltExplosao)
     .X=EXX
     .Y=EXY
     .Tipo=XTam+1
@@ -2948,10 +2836,9 @@ sub Explode (byval EXX as integer, byval EXY as integer, byval XTam as integer)
   end with
 end sub
 
-'Esvazia o conteúdo da matriz da mina
-
+' Esvazia o conteúdo da matriz da mina
 sub LimpaMina
-  dim as integer F, G
+  dim as integer f, g
   for f = -1 to 100
     for g = -1 to 60
       Frente (f, g) = 0
@@ -2967,83 +2854,75 @@ sub LimpaMina
   Mina.Alt = 59
   Mina.X = 0
   Mina.Y = 0
-  Boneco.X = 0
-  Boneco.Y = 0
+  GBoneco.X = 0
+  GBoneco.Y = 0
   MAPX = 0
   MAPY = 0
 end sub
 
-'Reinicia tabela de recordes
-
+' Reinicia tabela de recordes
 sub LimpaTopDez
-  dim as integer F
   kill "top10.min"
   MontaTopDez
   open "top10.min" for output as #1
-  for f=0 to 9
-    print #1, toppt(f).nome; ", " ; str(toppt(f).pontos)
+  for f as integer = 0 to 9
+    print #1, GBestScore(f).Nome; ", " ; str(GBestScore(f).Pontos)
   next
   close #1
 end sub
 
-'Verifica se está entre os TOP 10, solicita nome e inclui na tabela
-
+' Verifica se está entre os TOP 10, solicita Nome e inclui na tabela
 function VerificaRecorde as integer
-  dim as integer F
-  dim Posit as integer
+  dim as integer f, Posit = 10
   dim TecX as string
-  Posit = 10
-  for F = 9 to 0 step -1
-    if Boneco.pontos > TopPt(f).Pontos then Posit = F
+  for f = 9 to 0 step -1
+    if GBoneco.Pontos > GBestScore(f).Pontos then Posit = f
   next
   if Posit < 10 then
     for f = 9 to Posit step -1
-      TopPt(f+1).Pontos = TopPt(f).Pontos
-      TopPt(F+1).Nome = TopPt(f).Nome
+      GBestScore(f + 1).Pontos = GBestScore(f).Pontos
+      GBestScore(f + 1).Nome = GBestScore(f).Nome
     next
-    TopPt(Posit).Pontos = Boneco.Pontos
+    GBestScore(Posit).Pontos = GBoneco.Pontos
     LimpaTeclado
-    TecX=""
+    TecX = ""
     while TecX <> chr(13)
-      TecX=inkey
-      if len(TecX)>0 then
-        if instr(" " + Lt_, TecX)>0 and len (Boneco.nome) < 20 and TecX <> "," then Boneco.Nome += TecX
-        if tecx=chr(8) or tecx=chr(255)+chr(83) and len(boneco.nome)>0 then boneco.nome=left(boneco.nome, len(boneco.nome)-1)
+      TecX = inkey
+      if len(TecX) > 0 then
+        if instr(" " + Lt_, TecX) > 0 and len(GBoneco.Nome) < 20 and TecX <> "," then GBoneco.Nome += TecX
+        if (tecx = chr(8) or tecx = chr(255) + chr(83)) and len(GBoneco.Nome) > 0 then GBoneco.Nome = left(GBoneco.Nome, len(GBoneco.Nome) - 1)
       end if
       DesFundo
-      Mensagem 4, 10, TXT(85), TXT(86), "", , 220
-      if boneco.nome="" then
-        Mensagem 2, 10, " ", chr (32 + 63 * (int(Clock * 2) mod 2)), " ",, 360
+      Mensagem 4, 10, GText(85), GText(86), "",, 220
+      if GBoneco.Nome = "" then
+        Mensagem 2, 10, " ", chr(32 + 63 * (int(Clock * 2) mod 2)), " ",, 360
       else
-        Mensagem 2, 10, " ", boneco.nome & chr (32 + 63 * (int(Clock * 2) mod 2)), " ",, 360
+        Mensagem 2, 10, " ", GBoneco.Nome & chr(32 + 63 * (int(Clock * 2) mod 2)), " ",, 360
       end if
       TrocaTelas
     wend
     cls
     UltTecla = "["
     Tecla = "["
-    if boneco.nome="" then boneco.nome="?"
-    TopPt(Posit).Nome=boneco.nome
+    if GBoneco.Nome = "" then GBoneco.Nome = "?"
+    GBestScore(Posit).Nome = GBoneco.Nome
     LimpaTeclado
     kill "top10.min"
     open "top10.min" for output as #1
-    for f=0 to 9
-      print #1, toppt(f).nome; ", " ; str(toppt(f).pontos)
+    for f = 0 to 9
+      print #1, GBestScore(f).Nome; ", " ; str(GBestScore(f).Pontos)
     next
     close #1
   end if
   if Posit < 10 then return (Posit + 1) else return 0
 end function
 
-'Le a tabela dos TOP 10
-
+' Le a tabela dos TOP 10
 sub LeTopDez
-  dim as integer F
-  'Lê Top10. Se não houver, reinicia recordes
   if fileexists("top10.min") then
     open "top10.min" for input as #1
-    for f=0 to 9
-      input #1, TopPt(f).nome, TopPt(f).pontos
+    for f as integer = 0 to 9
+      input #1, GBestScore(f).Nome, GBestScore(f).Pontos
     next
     close #1
   else
@@ -3051,33 +2930,30 @@ sub LeTopDez
   end if
 end sub
 
-'Reinicia tabela de TOP 10
-
+' Reinicia tabela de TOP 10
 sub MontaTopDez
-  TopPt(0).nome = "Top1" : TopPt(0).pontos = 15000
-  TopPt(1).nome = "Top2" : TopPt(1).pontos = 12500
-  TopPt(2).nome = "Top3" : TopPt(2).pontos = 10000
-  TopPt(3).nome = "Top4" : TopPt(3).pontos =  9000
-  TopPt(4).nome = "Top5" : TopPt(4).pontos =  8000
-  TopPt(5).nome = "Top6" : TopPt(5).pontos =  7000
-  TopPt(6).nome = "Top7" : TopPt(6).pontos =  5000
-  TopPt(7).nome = "Top8" : TopPt(7).pontos =  4000
-  TopPt(8).nome = "Top9" : TopPt(8).pontos =  3000
-  TopPt(9).nome = "Top10" : TopPt(9).pontos = 2000
+  GBestScore(0).Nome = "Top1" : GBestScore(0).Pontos = 15000
+  GBestScore(1).Nome = "Top2" : GBestScore(1).Pontos = 12500
+  GBestScore(2).Nome = "Top3" : GBestScore(2).Pontos = 10000
+  GBestScore(3).Nome = "Top4" : GBestScore(3).Pontos =  9000
+  GBestScore(4).Nome = "Top5" : GBestScore(4).Pontos =  8000
+  GBestScore(5).Nome = "Top6" : GBestScore(5).Pontos =  7000
+  GBestScore(6).Nome = "Top7" : GBestScore(6).Pontos =  5000
+  GBestScore(7).Nome = "Top8" : GBestScore(7).Pontos =  4000
+  GBestScore(8).Nome = "Top9" : GBestScore(8).Pontos =  3000
+  GBestScore(9).Nome = "Top10" : GBestScore(9).Pontos = 2000
 end sub
 
-'Faz a troca de screens e ajusta o FPS
-
+' Faz a troca de screens e ajusta o FPS
 sub TrocaTelas
   dim as integer tempo, Falta
   screenset 1 - ScrAtiva,  ScrAtiva
   ScrAtiva = 1 - ScrAtiva
-  'Ajuste FPS
   ATimer = NTimer
   NTimer = int(Clock * 1000)
   Falta = 1
   Tempo = NTimer - ATimer
-  Falta = Jogo.DelayMSec - Tempo
+  Falta = GJogo.DelayMSec - Tempo
   if Falta < 1 then Falta = 1
   if multikey(SC_LSHIFT) or multikey(SC_RSHIFT) then
     sleep 1, 1
@@ -3087,26 +2963,22 @@ sub TrocaTelas
  end sub
 
 'Manda desenhar o quadro e escreve as mensagens
-
-sub Mensagem (QCor as integer, Tipo as integer, T1 as string, T2 as string, T3 as string, OX as integer = 400, OY as integer= 300, Opcao as integer = 0)
-
-'Tipos:
-'0-Sem ícone + pressiona qq tecla
-'1-Sem ícone + Sim / Não
-'2-Exclamação + Pressiome qq tecla
-'3-Exclamação + Sim / Não
-'4-Interrogação + pressiona qq tecla
-'5-Interrogação + Sim / Não
-'6-Ok + pressiona qq tecla
-'7-Ok + Sim / Não
-'8-Dame + pressiona qq tecla
-'9-Dame + Sim / Não
-'10-Medalha + pressiona qq tecla
-'12-ByNIZ + pressiona qq tecla
-
-  dim as integer Larg, Alt, V, F
-  dim as string Tex (2)
-
+sub Mensagem(QCor as integer, Tipo as integer, T1 as string, T2 as string, T3 as string, OX as integer, OY as integer, Opcao as integer)
+' Tipos:
+' 00 - Sem ícone + pressiona qq tecla
+' 01 - Sem ícone + Sim / Não
+' 02 - Exclamação + Pressiome qq tecla
+' 03 - Exclamação + Sim / Não
+' 04 - Interrogação + pressiona qq tecla
+' 05 - Interrogação + Sim / Não
+' 06 - Ok + pressiona qq tecla
+' 07 - Ok + Sim / Não
+' 08 - Dame + pressiona qq tecla
+' 09 - Dame + Sim / Não
+' 10 - Medalha + pressiona qq tecla
+' 12 - ByNIZ + pressiona qq tecla
+  dim as integer Larg, Alt, v, f
+  dim as string Tex(2)
   if T2 = "" then
     Alt = 1
   elseif T3 = "" then
@@ -3114,87 +2986,83 @@ sub Mensagem (QCor as integer, Tipo as integer, T1 as string, T2 as string, T3 a
   else
     Alt = 3
   end if
-  V = Alt
-
+  v = Alt
   Tex(0) = T1
   Tex(1) = T2
   Tex(2) = T3
-
   Larg = 10
-  for F = 0 to 2
-    if LargTexto (Tex (f), - (f = 0)) > Larg then Larg = LargTexto (Tex (f), - (f = 0))
+  for f = 0 to 2
+    if LargTexto(Tex(f), -(f = 0)) > Larg then Larg = LargTexto(Tex(f), -(f = 0))
   next
-
-  Larg = int (Larg / 32) + 1
+  Larg = Larg \ 32 + 1
   if Tipo > 1 then Larg += 2
   if (Tipo mod 2 = 1) and (Larg < 7) then Larg = 7
   if Tipo mod 2 = 1 then Alt += 2
   if Tipo > 1 and Alt < 2 then Alt = 2
   DesBox Larg, Alt, QCor, OX, OY
-  for F = 0 to V - 1
-    Escreve Tex(F), OX - 24 * (Tipo > 1) - LargTexto(Tex(F), - (f = 0)) /2  , OY - Alt * 16 + F * 32 + 4, - (f = 0), 0
+  for f = 0 to v - 1
+    Escreve Tex(f), OX - 24 * (Tipo > 1) - LargTexto(Tex(f), -(f = 0)) \ 2, OY - Alt * 16 + f * 32 + 4, -(f = 0), 0
   next
-  if Tipo > 1 then put (OX - Larg * 16, OY - Alt * 16), GBitmaps(252 + int(Tipo / 2)),trans
+  if Tipo > 1 then put (OX - Larg * 16, OY - Alt * 16), GBitmap(252 + Tipo \ 2),trans
   MouseSimNao = 0
   if Tipo mod 2 = 1 then
-    put (OX - 66 + Opcao * 76, Oy + Alt * 16 - 38), GBitmaps(276), (576, 0) - (630, 32), trans
-    put (OX + 10 - 76 * Opcao, Oy + Alt * 16 - 38), GBitmaps(276), (576, 33) - (630, 65), trans
-    Escreve TXT(58), OX - 38 - LargTexto (TXT (58), 0)/2, Oy + Alt * 16 - 32, 0, 0
-    Escreve TXT(59), OX + 38 - LargTexto (TXT (59), 0)/2, Oy + Alt * 16 - 32, 0, 0
-    put (OX - 66 + Opcao * 76, Oy + Alt * 16 - 40), GBitmaps(276), (576, 66) - (630, 102), trans
-    if (MouseY > OY + Alt * 16 - 39) and (MouseY < Oy + Alt * 16 - 4) then
-      if MouseX > OX - 67 and MouseX < OX - 9 then MouseSimNao = 1
-      if MouseX > OX + 9 and MouseX < OX + 67 then MouseSimNao = 2
+    put (OX - 66 + Opcao * 76, Oy + Alt * 16 - 38), GBitmap(276), (576, 0)-(630, 32), trans
+    put (OX + 10 - 76 * Opcao, Oy + Alt * 16 - 38), GBitmap(276), (576, 33)-(630, 65), trans
+    Escreve GText(58), OX - 38 - LargTexto (GText(58), 0)/2, Oy + Alt * 16 - 32, 0, 0
+    Escreve GText(59), OX + 38 - LargTexto (GText(59), 0)/2, Oy + Alt * 16 - 32, 0, 0
+    put (OX - 66 + Opcao * 76, Oy + Alt * 16 - 40), GBitmap(276), (576, 66)-(630, 102), trans
+    if (GMY > OY + Alt * 16 - 39) and (GMY < Oy + Alt * 16 - 4) then
+      if GMX > OX - 67 and GMX < OX - 9 then MouseSimNao = 1
+      if GMX > OX + 9 and GMX < OX + 67 then MouseSimNao = 2
     end if
   end if
 end sub
 
 'Desenha o quadro (para mensagens)
-sub DesBox (H as integer, V as integer, QCor as integer, OX as integer = 400, OY as integer = 300)
-  dim as integer F, G
+sub DesBox(h as integer, V as integer, QCor as integer, OX as integer = 400, OY as integer = 300)
+  dim as integer f, g
   if QCor < 4 then
-    put (OX - 16 - H * 16, OY - 16 - V * 16), GBitmaps(248 + QCor), (0, 0) - step (15, 15), alpha
-    put (OX - 16 - H * 16, OY + V * 16), GBitmaps(248 + QCor), (0, 48) - step (15, 15), alpha
-    put (OX + H * 16, OY - 16 - V * 16), GBitmaps(248 + QCor), (48, 0) - step (15, 15), alpha
-    put (OX + H * 16, OY + V * 16), GBitmaps(248 + QCor), (48, 48) - step (15, 15), alpha
-    for F = 0 to H - 1
-      put (OX - H * 16 + F * 32, OY - 16 - V * 16), GBitmaps(248 + QCor), (16, 0) - step (31, 15), alpha
-      put (OX - H * 16 + F * 32, OY + V * 16), GBitmaps(248 + QCor), (16, 48) - step (31, 15), alpha
-      for G = 0  to V - 1
-        put (OX - H * 16 + F * 32, OY - V * 16 + G * 32), GBitmaps(248 + QCor), (16, 16) - step (31, 31), alpha
+    put (OX - 16 - h * 16, OY - 16 - V * 16), GBitmap(248 + QCor), (0, 0)-step(15, 15), alpha
+    put (OX - 16 - h * 16, OY + V * 16), GBitmap(248 + QCor), (0, 48)-step(15, 15), alpha
+    put (OX + h * 16, OY - 16 - V * 16), GBitmap(248 + QCor), (48, 0)-step(15, 15), alpha
+    put (OX + h * 16, OY + V * 16), GBitmap(248 + QCor), (48, 48)-step(15, 15), alpha
+    for f = 0 to h - 1
+      put (OX - h * 16 + f * 32, OY - 16 - V * 16), GBitmap(248 + QCor), (16, 0)-step(31, 15), alpha
+      put (OX - h * 16 + f * 32, OY + V * 16), GBitmap(248 + QCor), (16, 48)-step(31, 15), alpha
+      for g = 0  to V - 1
+        put (OX - h * 16 + f * 32, OY - V * 16 + g * 32), GBitmap(248 + QCor), (16, 16)-step(31, 31), alpha
       next
     next
-    for G = 0  to V - 1
-      put (OX - 16- H * 16, OY - V * 16 + G * 32), GBitmaps(248 + QCor), (0, 16) - step (15, 31), alpha
-      put (OX + H * 16, OY - V * 16 + G * 32), GBitmaps(248 + QCor), (48, 16) - step (15, 31), alpha
+    for g = 0  to V - 1
+      put (OX - 16- h * 16, OY - V * 16 + g * 32), GBitmap(248 + QCor), (0, 16)-step(15, 31), alpha
+      put (OX + h * 16, OY - V * 16 + g * 32), GBitmap(248 + QCor), (48, 16)-step(15, 31), alpha
     next
   else
     QCor -= 4
-    put (OX - 16 - H * 16, OY - 16 - V * 16), GBitmaps(248 + QCor), (0, 0) - step (15, 15), trans
-    put (OX - 16 - H * 16, OY + V * 16), GBitmaps(248 + QCor), (0, 48) - step (15, 15), trans
-    put (OX + H * 16, OY - 16 - V * 16), GBitmaps(248 + QCor), (48, 0) - step (15, 15), trans
-    put (OX + H * 16, OY + V * 16), GBitmaps(248 + QCor), (48, 48) - step (15, 15), trans
-    for F = 0 to H - 1
-      put (OX - H * 16 + F * 32, OY - 16 - V * 16), GBitmaps(248 + QCor), (16, 0) - step (31, 15), trans
-      put (OX - H * 16 + F * 32, OY + V * 16), GBitmaps(248 + QCor), (16, 48) - step (31, 15), trans
-      for G = 0  to V - 1
-        put (OX - H * 16 + F * 32, OY - V * 16 + G * 32), GBitmaps(248 + QCor), (16, 16) - step (31, 31), trans
+    put (OX - 16 - h * 16, OY - 16 - V * 16), GBitmap(248 + QCor), (0, 0)-step(15, 15), trans
+    put (OX - 16 - h * 16, OY + V * 16), GBitmap(248 + QCor), (0, 48)-step(15, 15), trans
+    put (OX + h * 16, OY - 16 - V * 16), GBitmap(248 + QCor), (48, 0)-step(15, 15), trans
+    put (OX + h * 16, OY + V * 16), GBitmap(248 + QCor), (48, 48)-step(15, 15), trans
+    for f = 0 to h - 1
+      put (OX - h * 16 + f * 32, OY - 16 - V * 16), GBitmap(248 + QCor), (16, 0)-step(31, 15), trans
+      put (OX - h * 16 + f * 32, OY + V * 16), GBitmap(248 + QCor), (16, 48)-step(31, 15), trans
+      for g = 0  to V - 1
+        put (OX - h * 16 + f * 32, OY - V * 16 + g * 32), GBitmap(248 + QCor), (16, 16)-step(31, 31), trans
       next
     next
-    for G = 0  to V - 1
-      put (OX - 16- H * 16, OY - V * 16 + G * 32), GBitmaps(248 + QCor), (0, 16) - step (15, 31), trans
-      put (OX + H * 16, OY - V * 16 + G * 32), GBitmaps(248 + QCor), (48, 16) - step (15, 31), trans
+    for g = 0  to V - 1
+      put (OX - 16- h * 16, OY - V * 16 + g * 32), GBitmap(248 + QCor), (0, 16)-step(15, 31), trans
+      put (OX + h * 16, OY - V * 16 + g * 32), GBitmap(248 + QCor), (48, 16)-step(15, 31), trans
     next
   end if
 end sub
 
-'Desenha o LOGO do game
 sub PutLogo (LX as integer, LY as integer)
-  put (LX, LY), GBitmaps(211), trans
+  put (LX, LY), GBitmap(211), trans
 end sub
 
 function CTRX as integer
-  with Boneco
+  with GBoneco
     if .X < 12 then
       return .X * 32 + 16
     elseif .X > Mina.Larg - 12 then
@@ -3206,7 +3074,7 @@ function CTRX as integer
 end function
 
 function CTRY as integer
-  with Boneco
+  with GBoneco
     if .Y < 8 then
       return .Y * 32 + 16
     elseif .Y > Mina.Alt - 8 then
@@ -3217,8 +3085,8 @@ function CTRY as integer
   end with
 end function
 
-sub MarcaPt (Pontos as integer, X as integer, Y as integer)
-  with  MSG (ProxMsg)
+sub MarcaPt(Pontos as integer, X as integer, Y as integer)
+  with GMessage(ProxMsg)
     .Ciclo = 63
     .Pontos = Pontos
     .X = X
@@ -3231,10 +3099,10 @@ end sub
 function ProximaTeclaDemo as string
   dim TecTemp as string
   dim as integer ValTemp, BX, BY
-  BX = Boneco.X
-  BY = Boneco.Y
-  if Boneco.Passo = Jogo.Passos then
-    select case boneco.DirAtual
+  BX = GBoneco.X
+  BY = GBoneco.Y
+  if GBoneco.Passo = GJogo.Passos then
+    select case GBoneco.DirAtual
     case 1
       bx = bx + 1
     case 2
@@ -3254,7 +3122,7 @@ function ProximaTeclaDemo as string
   end if
   MensDemo = 0
 Proximo:
-  if PositDemo > len (TeclasDemo)/3 then
+  if PositDemo > len(TeclasDemo)/3 then
     PositDemo = 0
     return "ESC"
   else
@@ -3288,9 +3156,9 @@ Proximo:
       if TecTemp="D" then TecTemp="V"
       if TecTemp="C" then
         if mid(teclasdemo, positdemo * 3 + 3, 1) = "R" then
-          Boneco.DirFuradeira = 1
+          GBoneco.DirFuradeira = 1
         elseif mid(teclasdemo, positdemo * 3 + 3, 1) = "L" then
-          Boneco.DirFuradeira = 2
+          GBoneco.DirFuradeira = 2
         end if
       end if
       PositDemo = PositDemo + 1
@@ -3324,22 +3192,19 @@ Proximo:
 SaiDaqui:
 end function
 
-'Le mina do arquivo (padrão)
-sub LeMinaIn (NMina as integer, SoQuant as integer = 0)
+' Le mina do arquivo (padrão)
+sub LoadMineFromFile(NMina as integer, SoQuant as integer)
   dim as longint FilePos, FileTam
   dim as ushort MinaTemp, TotMinas
   dim as ubyte Temporary1
   LimpaMina
-  'zera contador de tesouros para iniciar a contagem
   Mina.Tesouros = 0
-  'Abre arquivo
-  'Verifica se o arquivo existe
   if fileexists("minas.bin") then
     open "minas.bin" for binary as #1
     FileTam = lof(1)
     if FileTam > 20 then
       get #1,, TotMinas
-      Jogo.NumMinas = TotMinas
+      GJogo.NumMinas = TotMinas
       FilePos = 3
       if SoQuant = 0 then
         get #1,, MinaTemp
@@ -3358,24 +3223,24 @@ sub LeMinaIn (NMina as integer, SoQuant as integer = 0)
         LeMinaDet 0
       end if
     else
-      Mensagem 4, 8, TXT(87), TXT(0), ""
+      Mensagem 4, 8, GText(87), GText(0), ""
       MudaStatus NoMenu
     end if
     close #1
-  else  'Arquivo não existe
-    Mensagem 4, 8, TXT(88), TXT(0), ""
+  else ' Arquivo não existe
+    Mensagem 4, 8, GText(88), GText(0), ""
     MudaStatus NoMenu
   end if
 end sub
 
 'Le o desenho da mina (tiles)
-sub LeMinaDet (Editando as integer = 0)
-  dim as integer MXR, MYR, F, G
-  MXR=0
-  MYR=0
+sub LeMinaDet(Editando as integer)
+  dim as integer MXR, MYR, f, g
+  MXR = 0
+  MYR = 0
   if Editando = 0 then
-    if Mina.Larg < 24 then MXR = int (25 - Mina.Larg) / 2
-    if Mina.alt < 16 then MYR = int(17 - Mina.Alt) / 2
+    if Mina.Larg < 24 then MXR = (25 - Mina.Larg) \ 2
+    if Mina.alt < 16 then MYR = (17 - Mina.Alt) \ 2
     for f = -1 to mina.larg
       for g = -1 to mina.alt
         objeto(mxr + f, myr + g).tp = 31
@@ -3384,21 +3249,21 @@ sub LeMinaDet (Editando as integer = 0)
   end if
   Mina.Larg -= 1
   Mina.Alt -= 1
-  'Lê cada linha
+  ' Lê cada linha
   for g = 0 to Mina.Alt
-    'Le linha
+    ' Le linha
     for f = 0 to Mina.Larg
-      get #1,, Fundo (MXR + f, MYR + g)
-      get #1,, Frente (MXR + f, MYR + g)
-      get #1,, Objeto (MXR + f, MYR + g).tp
-      'Posição inicial do boneco
+      get #1,, Fundo(MXR + f, MYR + g)
+      get #1,, Frente(MXR + f, MYR + g)
+      get #1,, Objeto(MXR + f, MYR + g).tp
+      ' Posição inicial do boneco
       if objeto (MXR + f, MYR + g).tp = 85 then
-        Mina.X = MXR + F
-        Mina.Y = MYR + G
-        Boneco.X = Mina.X
-        Boneco.Y = Mina.Y
+        Mina.X = MXR + f
+        Mina.Y = MYR + g
+        GBoneco.X = Mina.X
+        GBoneco.Y = Mina.Y
         Objeto(MXR + f, MYR + g).tp = 0
-      elseif tpobjeto(Objeto (MXR+f,MYR+g).Tp).Tipo=5 then
+      elseif GObjectData(Objeto(MXR + f, MYR + g).Tp).Tipo = 5 then
         Mina.Tesouros +=1
       end if
     next
@@ -3406,44 +3271,44 @@ sub LeMinaDet (Editando as integer = 0)
   sleep 1, 1
   Mina.Larg += MXR
   Mina.Alt += MYR
-  Jogo.UltExplosao = 0
-  Jogo.Ciclo = 0
+  GJogo.UltExplosao = 0
+  GJogo.Ciclo = 0
   Iniciado = 0
 end sub
 
-'Faz levantamento e contagem das minas personalizadas
-sub LeMinasPers
+' Faz levantamento e contagem das minas personalizadas
+sub SearchCustomMines
   dim as string Narq
-  dim as integer Ordem, F
+  dim as integer Ordem, f
   screenset ScrAtiva, ScrAtiva
   Ordem = 0
-  line (298, 320) - (502, 344), &HFFFFFF, b
-  for F = 0 to 999
-    line (300 + f/5, 322) - step (0, 20), &H7080F0
+  line (298, 320)-(502, 344), &HFFFFFF, b
+  for f = 0 to 999
+    line (300 + f \ 5, 322)-step(0, 20), &H7080F0
     NArq = "minas/m" + right("000" & str(f), 3) + ".map"
     if fileexists(Narq) then
-      MinaPers(Ordem) = F
+      MinaPers(Ordem) = f
       Ordem +=1
     end if
   next
   if Ordem < 999 then
-    for F = Ordem to 999
+    for f = Ordem to 999
       MinaPers(f) = 0
     next
   end if
-  Boneco.Mina = MinaPers(0)
+  GBoneco.Mina = MinaPers(0)
   QuantPers = Ordem
 end sub
 
-sub GenerateAndPlaySoundGameOver
+sub PlaySoundGameOver
   dim Nota as integer
-  if Jogo.Status <> GameOver or (rnd * 500) < 10 then
+  if GJogo.Status <> GameOver or (rnd * 500) < 10 then
     Nota = (int(rnd * 32) + 64) shl 8
     PlaySoundGameOver(Nota)
   end if
 end sub
 
-sub GenerateAndPlaySoundGameWon
+sub PlaySoundGameWon
   dim Nota as integer
   if (QtdNotasVenceu = 0) or (QtdNotasVenceu < 6) and (Clock - TimerNotaVenceu >= .11) then
     QtdNotasVenceu += 1
@@ -3464,21 +3329,21 @@ end sub
 sub RegravaConfig
   kill "config.min"
   open "config.min" for output as #1
-  print #1, jogo.volume
-  print #1, Jogo.MaxAlcancada
-  print #1, IAtual
+  print #1, GJogo.volume
+  print #1, GJogo.MaxAlcancada
+  print #1, GCurrLangName
   close #1
 end sub
 
 'Le textos do programa, no idioma selecionado
-function LeTXT (Idioma as string) as integer
-  dim as integer F
-  if fileexists ("lang/" + idioma + ".lng") then
-    open "lang/" + idioma + ".lng" for input as #1
-    F = 0
+function LoadLanguage(ALang as string) as integer
+  dim as integer f
+  if fileexists ("lang/" + ALang + ".lng") then
+    open "lang/" + ALang + ".lng" for input as #1
+    f = 0
     while not eof (1)
-      input #1, TXT(F)
-      F += 1
+      input #1, GText(f)
+      f += 1
     wend
     close #1
     return 0
@@ -3487,39 +3352,38 @@ function LeTXT (Idioma as string) as integer
   end if
 end function
 
-'Define os textos, em português
-sub ProcIdiomas ()
+' Define os textos, em português
+sub ProcIdiomas()
   dim as string Arquivo
-  dim as integer F
   'Conta e carrega matriz com idiomas disponíveis
-  IQuant = 0
-  Arquivo = dir ("lang/*.lng")
-  while len(Arquivo) > 0 and IQuant < 9
-    Idioma (IQuant) = left(Arquivo, len(Arquivo) - 4)
-    IQuant += 1
-    Arquivo = dir ()
+  GLangCount = 0
+  Arquivo = dir("lang/*.lng")
+  while len(Arquivo) > 0 and GLangCount < 9
+    GLangName(GLangCount) = left(Arquivo, len(Arquivo) - 4)
+    GLangCount += 1
+    Arquivo = dir()
   wend
   'Localiza idioma atual na matriz
-  NAtual = 0
-  for f = 0 to IQuant
-    if Idioma (F) = IAtual then NAtual = F
+  GCurrLangIndex = 0
+  for f as integer = 0 to GLangCount
+    if GLangName(f) = GCurrLangName then GCurrLangIndex = f
   next
 end sub
 
-'Verifica se é pra ganhar vida
-sub VeSeGanhaVida (Acrescimo as integer)
-  if int(boneco.pontos / 1000) < int ((boneco.Pontos + Acrescimo) / 1000) then
-    Boneco.vidas += 1
+' Verifica se é pra ganhar vida
+sub VeSeGanhaVida(Acrescimo as integer)
+  if (GBoneco.Pontos) \ 1000 < (GBoneco.Pontos + Acrescimo) \ 1000 then
+    GBoneco.Vidas += 1
   end if
 end sub
 
-'Calcula o bonus de acordo com o tempo para concluir a mina
+' Calcula o bonus de acordo com o tempo para concluir a mina
 sub CalculaBonusTempo
   if Mina.Tempo = 0 then
-    PtBonus = (300 - Boneco.Tempo)
+    PtBonus = (300 - GBoneco.Tempo)
     if PtBonus > 100 then PtBonus = 100
   else
-    PtBonus = (Mina.Tempo - Boneco.Tempo)
+    PtBonus = (Mina.Tempo - GBoneco.Tempo)
     if PtBonus > 100 then PtBonus = 100
   end if
   VeSeGanhaVida PtBonus
@@ -3529,8 +3393,8 @@ end sub
 
 'Escreve um número pequeno e de 2 algarismos como cabeçalho de linha e coluna
 sub EscreveNumeroPeq (byval Numero as integer, X1 as integer, Y1 as integer)
-  put (x1, Y1), GBitmaps(274), (int(Numero/10) * 6, 0) - step(5, 7), trans
-  put (x1 + 6, Y1), GBitmaps(274), ((Numero mod 10) * 6, 0)- step(5, 7), trans
+  put (x1, Y1), GBitmap(274), ((Numero \ 10) * 6, 0)-step(5, 7), trans
+  put (x1 + 6, Y1), GBitmap(274), ((Numero mod 10) * 6, 0)- step(5, 7), trans
 end sub
 
 'Desenha um quadro
@@ -3545,15 +3409,15 @@ sub Dlinha (x1 as integer, y1 as integer, x2 as integer, y2 as integer, QualCor 
   case 3
     CorRGB = &H9F0000
   end select
-  line (x1, y1) - (x2, y1 + 2), CorRGB, BF
-  line (x1, y1) - (x1 + 2, y2), CorRGB, BF
-  line (x1, y2 - 2) - (x2, y2), CorRGB, BF
-  line (x2 - 2, y1) - (x2, y2), CorRGB, BF
+  line (x1, y1)-(x2, y1 + 2), CorRGB, BF
+  line (x1, y1)-(x1 + 2, y2), CorRGB, BF
+  line (x1, y2 - 2)-(x2, y2), CorRGB, BF
+  line (x2 - 2, y1)-(x2, y2), CorRGB, BF
 end sub
 
 'Conta as pedras existentes na mina
 function ContaTesouros as integer
-  dim as integer F, G
+  dim as integer f, g
   dim Contagem as integer
   Contagem = 0
   for f=0 to 99
@@ -3568,10 +3432,10 @@ end function
 function MaiorLinha as integer
   dim as integer LMax, f, g
   LMax = 1
-  for F = 0 to 99
-    for G = 0 to 59
+  for f = 0 to 99
+    for g = 0 to 59
       if objeto(f,g).TP > 0 or fundo (f, g) <> 1 or frente (f,g )>0 then
-        if G > LMaX then LMaX = G
+        if g > LMaX then LMaX = g
       end if
     next
   next
@@ -3582,10 +3446,10 @@ end function
 function MaiorColuna as integer
   dim as integer LMax, f, g
   LMax = 1
-  for F = 0 to 99
-    for G = 0 to 59
+  for f = 0 to 99
+    for g = 0 to 59
       if objeto(f,g).TP > 0 or fundo (f, g) <> 1 or frente (f,g )>0 then
-        if F > LMaX then LMaX = F
+        if f > LMaX then LMaX = f
       end if
     next
   next
@@ -3603,7 +3467,7 @@ sub SalvaMina (ParaTestar as integer = 0)
   if Mina.tesouros = 0 then
     LimpaTeclado
     cls
-    Mensagem 5, 8, TXT (100), "", ""
+    Mensagem 5, 8, GText(100), "", ""
     TrocaTelas
     cls
     while inkey <> ""
@@ -3620,12 +3484,12 @@ sub SalvaMina (ParaTestar as integer = 0)
       LMTec = ""
       while LMTec<>Chr(27) and LMTec<>Chr(13)
         cls
-        Mensagem 5, 4, TXT(101), TXT(102), LMNum & chr (32 + 63 * (int(Clock * 2) mod 2))
-        if LMTec >= "0" and LMTec <= "9" and len (LMNum) < 3 then
+        Mensagem 5, 4, GText(101), GText(102), LMNum & chr (32 + 63 * (int(Clock * 2) mod 2))
+        if LMTec >= "0" and LMTec <= "9" and len(LMNum) < 3 then
           if LMNum = "0" then LMNum = "0"
           LMNum += LMTec
         elseif LMTec = chr(8) or lmtec = c255 + chr(83) then
-          lMNum = left (LMNum, len (LMNum) - 1)
+          lMNum = left (LMNum, len(LMNum) - 1)
         end if
         TrocaTelas
         LMTec=inkey
@@ -3647,11 +3511,11 @@ sub SalvaMina (ParaTestar as integer = 0)
         Opcao1 = Mina.Noturno
         while LMTec <> " " and LMTec <> chr(27) and LMTec <> chr(13)
           cls
-          Mensagem 5, 5, TXT(103), TXT(104), "", , , Opcao1
-          LMTec=inkey
-          LeMouse
-          if ((MouseMoveu = 1) or (MouseDisparou = 1)) and (MouseSimNao > 0) then Opcao1 = MouseSimNao - 1
-          if (MouseDisparou = 1) and (MouseSimNao > 0) then LMTec = " "
+          Mensagem 5, 5, GText(103), GText(104), "",,, Opcao1
+          LMTec = inkey
+          GetMouseState
+          if ((GMMove = 1) or (GMBDown = 1)) and (MouseSimNao > 0) then Opcao1 = MouseSimNao - 1
+          if (GMBDown = 1) and (MouseSimNao > 0) then LMTec = " "
           if (LmTec = c255 + "H") or (LmTec = c255 + "K") or (LmTec = c255 + "M") or (LmTec = c255 + "P") then Opcao1 = 1 - Opcao1
           TrocaTelas
         wend
@@ -3667,12 +3531,12 @@ sub SalvaMina (ParaTestar as integer = 0)
           LMTec = ""
           while LMTec <> chr(27) and LMTec <> chr(13)
             cls
-            Mensagem 5, 4, TXT(106), TXT(107), LMNum & chr (32 + 63 * (int(Clock * 2) mod 2))
-            if (LMTec >= "0") and (LMTec <= "9") and (len (LMNum) < 5) then
+            Mensagem 5, 4, GText(106), GText(107), LMNum & chr(32 + 63 * (int(Clock * 2) mod 2))
+            if (LMTec >= "0") and (LMTec <= "9") and (len(LMNum) < 5) then
               if LMNum = "0" then LMNum = ""
               LMNum += LMTec
             elseif LMTec = chr(8) or lmtec = c255 + chr(83) then
-              lMNum = left(LMNum, len (LMNum) - 1)
+              lMNum = left(LMNum, len(LMNum) - 1)
             end if
             LMTec = inkey
             TrocaTelas
@@ -3700,12 +3564,12 @@ sub SalvaMina (ParaTestar as integer = 0)
             for f= 0 to Mina.Larg-1
               put #1,,fundo(f,g)
               put #1,,frente(f,g)
-              if boneco.x=f and boneco.y=g then
-                objeto(f,g).TP =85
+              if GBoneco.x = f and GBoneco.y = g then
+                objeto(f,g).TP = 85
                 put #1,,objeto(f,g).TP
                 objeto(f,g).TP = 0
               else
-                put #1,, objeto(f,g).TP
+                put #1,, objeto(f, g).TP
               end if
             next
           next
@@ -3714,7 +3578,7 @@ sub SalvaMina (ParaTestar as integer = 0)
           TrocaTelas
           cls
           if ParaTestar = 0 then
-            Mensagem 6, 6, TXT(112), "", ""
+            Mensagem 6, 6, GText(112), "", ""
             TrocaTelas
             while inkey <> ""
               sleep 1, 1
@@ -3738,17 +3602,17 @@ sub SalvaMina (ParaTestar as integer = 0)
   LimpaTeclado
 end sub
 
-'Rotina principal do EDITOR - pode ser mudada para um item dentro de "Joga"
+' Rotina principal do EDITOR - pode ser mudada para um item dentro de "Joga"
 sub Edita
-  dim as integer F, G
-  PosMouse = PosMouseEd ()
-  select case Jogo.EdStatus
+  dim as integer f, g
+  PosMouse = PosMouseEd()
+  select case GJogo.EdStatus
   case Editando
-    EdX1 = int (MouseX / 32)
-    EdY1 = int (MouseY / 32)
+    EdX1 = GMX \ 32
+    EdY1 = GMY \ 32
     select case Tecla
     case "ESC"
-      if Tecla <> UltTecla then Jogo.EdStatus = RespExit
+      if Tecla <> UltTecla then GJogo.EdStatus = RespExit
     case "U"
       MapY -= 1
       if MapY < 0 then MapY = 0
@@ -3762,10 +3626,10 @@ sub Edita
       MapX-=1
       if MapX < 0 then MapX = 0
     end select
-    if (MouseDisparou = 1) or ((MouseB > 0) and ((PosMouse = EdBarra) or (PosMouse = EdEsquerda) or (PosMouse = EdDireita))) then
+    if (GMBDown = 1) or ((GMB > 0) and ((PosMouse = EdBarra) or (PosMouse = EdEsquerda) or (PosMouse = EdDireita))) then
       select case PosMouse
       case EdForaTela
-        'Nada a fazer
+        ' Nada a fazer
       case EdTela
         EdX2 = EDX1
         EdY2 = EDY1
@@ -3774,14 +3638,14 @@ sub Edita
         EdYY1 = EDY1
         EdYY2 = EDY2
         if ItemSel = 0 then
-          if (boneco.x <> Mapx + edx1) or (boneco.y <> Mapy + edy1) then
+          if (GBoneco.x <> Mapx + edx1) or (GBoneco.y <> Mapy + edy1) then
             GravaUndo
-            boneco.x = Mapx + edx1
-            boneco.y = Mapy + edy1
+            GBoneco.x = Mapx + edx1
+            GBoneco.y = Mapy + edy1
             Mina.Alterada = 1
           end if
         else
-          Jogo.EdStatus = Selecionando
+          GJogo.EdStatus = Selecionando
         end if
       case EdInicio
         PrimeiroItem = 0
@@ -3794,20 +3658,20 @@ sub Edita
       case EdFim
         PrimeiroItem = 100
       case EdBarra
-        PrimeiroItem = int ((MouseX - 80) / 4.48)
+        PrimeiroItem = int ((GMX - 80) / 4.48)
         if PrimeiroItem < 0 then PrimeiroItem = 0
         if PrimeiroItem > 100 then PrimeiroItem = 100
       case EdItem
-        ItemSel = PrimeiroItem + int (MouseX / 34)
+        ItemSel = PrimeiroItem + int (GMX / 34)
       case EdNovo
-        Jogo.EdStatus = RespNovo
+        GJogo.EdStatus = RespNovo
       case EdAbre
-        Jogo.EdStatus = RespAbrindo
+        GJogo.EdStatus = RespAbrindo
       case EdMove
-        Jogo.EdStatus = EdMovendo
+        GJogo.EdStatus = EdMovendo
         EdMovendoUndo = 0
       case EdSalva
-        Jogo.EdStatus = RespSalvar
+        GJogo.EdStatus = RespSalvar
         UMTec = str(Mina.Numero)
       case EdVisao
         EdShow = (Edshow + 1) mod 4
@@ -3820,40 +3684,40 @@ sub Edita
         EdYY2 = -1
         EdX1 = -1
         EdY1 = -1
-        Jogo.EdStatus = Apagando0
+        GJogo.EdStatus = Apagando0
       case EdTesta
-        Jogo.EdStatus = RespTesta
+        GJogo.EdStatus = RespTesta
       case EdUndo
         FazUndo
       case EdRedo
         FazRedo
-      case EdEXIT
-        Jogo.EdStatus = RespExit
+      case EdExit
+        GJogo.EdStatus = RespExit
       end select
     end if
   case Selecionando
     if PosMouse = EdTela then
-      EdX2 = int (MouseX / 32)
-      EdY2 = int (MouseY / 32)
+      EdX2 = GMX \ 32
+      EdY2 = GMY \ 32
       SwapEDXY
       if (Tecla = "ESC") and (Ulttecla <> Tecla) then
-        Jogo.EdStatus = Editando
+        GJogo.EdStatus = Editando
       else
-        if MouseLiberou = 1 then
-          Jogo.EdStatus = Editando
+        if GMBUp = 1 then
+          GJogo.EdStatus = Editando
           GravaUndo
           Mina.alterada = 1
-          for F = EDXX1 to EDXX2
-            for G = EDYY1 to EDYY2
+          for f = EDXX1 to EDXX2
+            for g = EDYY1 to EDYY2
               select case ItemSel
               case 1 to 25
-                Fundo (MAPX + F, MAPY + G) = ItemSel - 1
+                Fundo(MAPX + f, MAPY + g) = ItemSel - 1
               case 26 to 37
-                Frente (MAPX + F, MAPY + G) = ItemSel - 26
+                Frente(MAPX + f, MAPY + g) = ItemSel - 26
               case 38 to 114
-                Objeto (MAPX + F, MAPY + G).TP = ItemSel - 38
+                Objeto(MAPX + f, MAPY + g).TP = ItemSel - 38
               case else
-                Objeto (MAPX + F, MAPY + G).TP = ItemSel - 33
+                Objeto(MAPX + f, MAPY + g).TP = ItemSel - 33
               end select
             next
           next
@@ -3870,24 +3734,24 @@ sub Edita
           frente (f, g) = 0
         next
       next
-      boneco.x = 0
-      boneco.y = 0
+      GBoneco.x = 0
+      GBoneco.y = 0
     end if
-    Jogo.EdStatus = Editando
+    GJogo.EdStatus = Editando
   case RespAbrindo
     if PergFecha () = 1 then
       Opcao1 = 0
-      Boneco.Mina = 0
+      GBoneco.Mina = 0
       cls
       TrocaTelas
       cls
-      Mensagem 7, 8, TXT(92), TXT(93), " "
-      LeMinasPers
+      Mensagem 7, 8, GText(92), GText(93), " "
+      SearchCustomMines
       TrocaTelas
       cls
       MudaStatus Configs
     else
-      Jogo.EdStatus = Editando
+      GJogo.EdStatus = Editando
     end if
   case EdMovendo
     if ulttecla <> tecla then
@@ -3902,8 +3766,8 @@ sub Edita
             frente (f, g) = frente (f, g + 1)
           next
         next
-        if boneco.y > 0 then boneco.y -= 1
-        Objeto (boneco.x, boneco.y).tp = 0
+        if GBoneco.y > 0 then GBoneco.y -= 1
+        Objeto (GBoneco.x, GBoneco.y).tp = 0
       case "D"
         if EdMovendoUndo = 0 then GravaUndo : EdMovendoUndo = 1
         Mina.alterada = 1
@@ -3914,8 +3778,8 @@ sub Edita
             frente (f, g) = frente (f, g - 1)
           next
         next
-        if boneco.y < 59 then boneco.y += 1
-        Objeto (boneco.x, boneco.y).tp = 0
+        if GBoneco.y < 59 then GBoneco.y += 1
+        Objeto (GBoneco.x, GBoneco.y).tp = 0
       case "R"
         if EdMovendoUndo = 0 then GravaUndo : EdMovendoUndo = 1
         Mina.alterada = 1
@@ -3926,8 +3790,8 @@ sub Edita
             frente(f, g) = frente (f - 1, g)
           next
         next
-        if boneco.x < 99 then boneco.x += 1
-        Objeto (boneco.x, boneco.y).tp = 0
+        if GBoneco.x < 99 then GBoneco.x += 1
+        Objeto (GBoneco.x, GBoneco.y).tp = 0
       case "L"
         if EdMovendoUndo = 0 then GravaUndo : EdMovendoUndo = 1
         Mina.alterada = 1
@@ -3938,25 +3802,25 @@ sub Edita
             frente (f, g) = frente (f + 1, g)
           next
         next
-        if boneco.x > 0 then boneco.x -= 1
-        Objeto (boneco.x, boneco.y).tp = 0
+        if GBoneco.x > 0 then GBoneco.x -= 1
+        Objeto (GBoneco.x, GBoneco.y).tp = 0
       case "[", "]", "ESC"
-        Jogo.EdStatus = Editando
+        GJogo.EdStatus = Editando
         EdMovendoUndo = 0
       end select
     end if
   case RespSalvar
     SalvaMina
-    Jogo.EdStatus = Editando
+    GJogo.EdStatus = Editando
   case Apagando0
     if PosMouse = EdTela then
-      EdX1 = int (MouseX / 32)
-      EdY1 = int (MouseY / 32)
+      EdX1 = int (GMX / 32)
+      EdY1 = int (GMY / 32)
     end if
     if Tecla = "ESC" and UltTecla <> Tecla then
-      Jogo.EdStatus = Editando
+      GJogo.EdStatus = Editando
     end if
-    if MouseDisparou = 1 then
+    if GMBDown = 1 then
       if PosMouse = EdTela then
         EdMon = 1
         EdX2 = EDX1
@@ -3965,26 +3829,26 @@ sub Edita
         EdXX2 = EDX2
         EdYY1 = EDY1
         EdYY2 = EDY2
-        Jogo.EdStatus = apagando1
+        GJogo.EdStatus = apagando1
       end if
     end if
   case Apagando1
     if PosMouse = EdTela then
-      EdX2 = int (MouseX / 32)
-      EdY2 = int (MouseY / 32)
+      EdX2 = int (GMX / 32)
+      EdY2 = int (GMY / 32)
       SwapEDXY
       if (Tecla = "ESC") and (Ulttecla <> Tecla) then
-        Jogo.EdStatus = Editando
+        GJogo.EdStatus = Editando
       else
-        if MouseLiberou = 1 then
-          Jogo.EdStatus = Editando
+        if GMBUp = 1 then
+          GJogo.EdStatus = Editando
           GravaUndo
           Mina.alterada = 1
-          for F = EDXX1 to EDXX2
-            for G = EDYY1 to EDYY2
-              Fundo (MAPX + F, MAPY + G) = 1
-              Frente (MAPX + F, MAPY + G) = 0
-              Objeto (MAPX + F, MAPY + G).TP = 0
+          for f = EDXX1 to EDXX2
+            for g = EDYY1 to EDYY2
+              Fundo (MAPX + f, MAPY + g) = 1
+              Frente (MAPX + f, MAPY + g) = 0
+              Objeto (MAPX + f, MAPY + g).TP = 0
             next
           next
         end if
@@ -3997,8 +3861,8 @@ sub Edita
       cls
       TrocaTelas
       cls
-      Mensagem 5, 8, TXT(100), "", ""
-      Jogo.EdStatus = Editando
+      Mensagem 5, 8, GText(100), "", ""
+      GJogo.EdStatus = Editando
       TrocaTelas
       cls
       while inkey = ""
@@ -4008,21 +3872,21 @@ sub Edita
     else
       while lmtec <> " " and LMTec <> chr(13) and lmtec <> chr(27)
         cls
-        Mensagem 4, 5, TXT (108), "", "", 400, 300, Opcao1
+        Mensagem 4, 5, GText(108), "", "", 400, 300, Opcao1
         LMTec=inkey
-        LeMouse
-        if ((MouseMoveu = 1) or (MouseDisparou = 1)) and (MouseSimNao > 0) then Opcao1 = MouseSimNao - 1
-        if (MouseDisparou = 1) and (MouseSimNao > 0) then LMTec = " "
+        GetMouseState
+        if ((GMMove = 1) or (GMBDown = 1)) and (MouseSimNao > 0) then Opcao1 = MouseSimNao - 1
+        if (GMBDown = 1) and (MouseSimNao > 0) then LMTec = " "
         if (LmTec = c255 + "H") or (LmTec = c255 + "K") or (LmTec = c255 + "M") or (LmTec = c255 + "P") then Opcao1 = 1 - Opcao1
         TrocaTelas
-        jogo.seqciclo=(jogo.seqciclo+1) mod 360
+        GJogo.seqciclo=(GJogo.seqciclo + 1) mod 360
       wend
       cls
       if Opcao1 = 1 or LMTec = chr(27) then
-        Jogo.EdStatus = Editando
+        GJogo.EdStatus = Editando
       else
         SalvaMina -1
-        LeMinaOUT -1, 0
+        LoadCustomMineFromFile -1, 0
         IniciaVida
         MudaStatus Testando
       end if
@@ -4034,125 +3898,125 @@ sub Edita
     while lmtec <> " " and LMTec <> chr(13) and lmtec <> chr(27)
       cls
       if Mina.Alterada = 1 then
-        Mensagem 4, 5, TXT (98), TXT (105), "", 400, 300, Opcao1
+        Mensagem 4, 5, GText(98), GText(105), "", 400, 300, Opcao1
       else
-        Mensagem 4, 5, TXT (105), "", "", 400, 300, Opcao1
+        Mensagem 4, 5, GText(105), "", "", 400, 300, Opcao1
       end if
       LMTec=inkey
-      LeMouse
-      if ((MouseMoveu = 1) or (MouseDisparou = 1)) and (MouseSimNao > 0) then Opcao1 = MouseSimNao - 1
-      if (MouseDisparou = 1) and (MouseSimNao > 0) then LMTec = " "
+      GetMouseState
+      if ((GMMove = 1) or (GMBDown = 1)) and (MouseSimNao > 0) then Opcao1 = MouseSimNao - 1
+      if (GMBDown = 1) and (MouseSimNao > 0) then LMTec = " "
       if (LmTec = c255 + "H") or (LmTec = c255 + "K") or (LmTec = c255 + "M") or (LmTec = c255 + "P") then Opcao1 = 1 - Opcao1
       TrocaTelas
-      jogo.seqciclo=(jogo.seqciclo+1) mod 360
+      GJogo.seqciclo=(GJogo.seqciclo+1) mod 360
     wend
     cls
     if Opcao1 = 1 or LMTec = chr(27) then
-      Jogo.EdStatus = Editando
+      GJogo.EdStatus = Editando
     else
       MudaStatus NoMenu
     end if
     LimpaTeclado 1
   end select
-  Objeto (Boneco.x, boneco.y).Tp = 0
+  Objeto (GBoneco.x, GBoneco.y).Tp = 0
 end sub
 
 sub EncerraTeste
-  LeMinaOUT -1, 1
+  LoadCustomMineFromFile -1, 1
   MudaStatus Editor
   kill "minas/teste.map"
 end sub
 
-'Desenha um item na tela do editor, conforme seu tipo
-sub DesenhaItem (ITX as integer, ITY as integer, ITN as integer)
-  if ITN = 0 then 'Boneco (ITN = 0)
-    put (ITX, ITY), GBitmaps(116), trans
-  elseif ITN = 1 then 'Fundo 0 = água (ITN = 1)
-    put (ITX, ITY), GBitmaps(213), pset
-  elseif ITN = 2 then 'Fundo 1 = vazio
-    line (ITX, ITY) - step (31, 31), &HFFFFFF, B
+' Desenha um item na tela do editor, conforme seu tipo
+sub DesenhaItem(ITX as integer, ITY as integer, ITN as integer)
+  if ITN = 0 then ' Boneco (ITN = 0)
+    put (ITX, ITY), GBitmap(116), trans
+  elseif ITN = 1 then ' Fundo 0 = água (ITN = 1)
+    put (ITX, ITY), GBitmap(213), pset
+  elseif ITN = 2 then ' Fundo 1 = vazio
+    line (ITX, ITY)-step(31, 31), &HFFFFFF, B
     Escreve "Fu", ITX + 7, ITY - 1
     Escreve "vz", ITX + 7, ITY + 13
-    line (ITX, ITY + 31) - step (31, -31), &HFFFFFF
-  elseif ITN  < 26 then 'Fundos 1 a 24 (ITN = 2 a 25)
-    put (ITX, ITY), GBitmaps(ITN - 1), pset
-  elseif ITN = 26 then  'Frente 0 = vazio
-    line (ITX, ITY) - step (31, 31), &HFFFFFF, B
+    line (ITX, ITY + 31)-step(31, -31), &HFFFFFF
+  elseif ITN  < 26 then ' Fundos 1 a 24 (ITN = 2 a 25)
+    put (ITX, ITY), GBitmap(ITN - 1), pset
+  elseif ITN = 26 then  ' Frente 0 = vazio
+    line (ITX, ITY)-step(31, 31), &HFFFFFF, B
     Escreve "Fr", ITX + 7, ITY - 1
     Escreve "vz", ITX + 7, ITY + 13
-    line (ITX, ITY + 31) - step (31, -31), &HFFFFFF
-  elseif ITN < 38 then  'Frentes 0 a 10
-    put (ITX, ITY), GBitmaps(ITN - 2), trans
-  elseif ITN = 38 then  'Objeto 0 = vazio
-    line (ITX, ITY) - step (31, 31), &HFFFFFF, B
+    line (ITX, ITY + 31)-step(31, -31), &HFFFFFF
+  elseif ITN < 38 then  ' Frentes 0 a 10
+    put (ITX, ITY), GBitmap(ITN - 2), trans
+  elseif ITN = 38 then  ' Objeto 0 = vazio
+    line (ITX, ITY)-step(31, 31), &HFFFFFF, B
     Escreve "Obj", ITX + 3, ITY - 1
     Escreve "vz", ITX + 7, ITY + 13
-    line (ITX, ITY + 31) - step (31, - 31), &HFFFFFF
+    line (ITX, ITY + 31)-step(31, - 31), &HFFFFFF
   elseif ITN < 115 then
-    put (ITX, ITY), GBitmaps(TpObjeto(ITN - 38).img), trans
+    put (ITX, ITY), GBitmap(GObjectData(ITN - 38).Img), trans
   elseif ITN < 123 then
-    put (ITX, ITY), GBitmaps(TpObjeto(ITN - 33).img), trans
+    put (ITX, ITY), GBitmap(GObjectData(ITN - 33).Img), trans
   else
     Escreve "?", ITX + 10, ITY + 7
   end if
 end sub
 
-'Encontra a posição do mouse (sobre qual comando ele está)
+' Encontra a posição do mouse (sobre qual comando ele está)
 function PosMouseEd () as integer
   dim Resposta as integer
-  if MouseY >= 544 then
-    if MouseX < 611 then
-      if MouseY > 564 then
+  if GMY >= 544 then
+    if GMX < 611 then
+      if GMY > 564 then
         Resposta = EdItem
       else
-        if MouseX < 23 then
+        if GMX < 23 then
           Resposta = EdInicio
-        elseif MouseX < 46 then
+        elseif GMX < 46 then
           Resposta = EdEsquerda
-        elseif MouseX < 565 then
+        elseif GMX < 565 then
           Resposta = EdBarra
-        elseif MouseX < 588 then
+        elseif GMX < 588 then
           Resposta = EdDireita
         else
           Resposta = EdFim
         end if
       end if
-    elseif MouseX > 612 then
-      if MouseX < 640 then
-        if MouseY < 572 then
+    elseif GMX > 612 then
+      if GMX < 640 then
+        if GMY < 572 then
           Resposta = EdNovo
         else
           Resposta = EdMove
         end if
-      elseif MouseX < 667 then
-        if MouseY < 572 then
+      elseif GMX < 667 then
+        if GMY < 572 then
           Resposta = EdAbre
         else
           Resposta = EdSalva
         end if
-      elseif MouseX < 719 then
+      elseif GMX < 719 then
         Resposta = EdVisao
-      elseif MouseX < 746 then
-        if MouseY < 572 then
+      elseif GMX < 746 then
+        if GMY < 572 then
           Resposta = EdMudaGrid
         else
           Resposta = EdUndo
         end if
-      elseif MouseX < 773 then
-        if MouseY < 572 then
+      elseif GMX < 773 then
+        if GMY < 572 then
           Resposta = EdApaga
         else
           Resposta = EdRedo
         end if
       else
-        if MouseY < 572 then
+        if GMY < 572 then
           Resposta = EdTesta
         else
           Resposta = EdExit
         end if
       end if
     end if
-  elseif MouseY > 0 and MouseX >0 and MouseX <= 799 then
+  elseif GMY > 0 and GMX >0 and GMX <= 799 then
     Resposta = EdTela
   else
     Resposta = EdForaTela
@@ -4160,10 +4024,10 @@ function PosMouseEd () as integer
   return Resposta
 end function
 
-'Limpa dados da mina usados pelo editor (nº, tempo, etc)
+' Limpa dados da mina usados pelo editor (nº, tempo, etc)
 sub LimpaMinaEditor
-  dim as integer F, G, H
-  for H = 0 to MaxUndo
+  dim as integer f, g, h
+  for h = 0 to MaxUndo
     for f = -1 to 100
       for g = -1 to 60
         UndoFrente (h, f, g) = 0
@@ -4190,12 +4054,12 @@ sub LimpaMinaEditor
   Mina.Noturno = 0
 end sub
 
-'Pergunta se pode fechar mina não salva
-function PergFecha () as integer
+' Pergunta se pode fechar mina não salva
+function PergFecha() as integer
   dim OpTXT as integer
-  if Jogo.EdStatus = RespNovo then
+  if GJogo.EdStatus = RespNovo then
     OpTXT = 99
-  elseif Jogo.EdStatus = RespAbrindo then
+  elseif GJogo.EdStatus = RespAbrindo then
     OpTXT = 113
   end if
   Opcao1 = 1
@@ -4203,17 +4067,17 @@ function PergFecha () as integer
   while lmtec <> " " and LMTec <> chr(13) and lmtec <> chr(27)
     cls
     if Mina.Alterada = 1 then
-      Mensagem 4, 5, TXT (98), TXT (OpTXT), "", 400, 300, Opcao1
+      Mensagem 4, 5, GText(98), GText(OpTXT), "", 400, 300, Opcao1
     else
-      Mensagem 4, 5, TXT (OpTXT), "", "", 400, 300, Opcao1
+      Mensagem 4, 5, GText(OpTXT), "", "", 400, 300, Opcao1
     end if
-    LMTec=inkey
-    LeMouse
-    if ((MouseMoveu = 1) or (MouseDisparou = 1)) and (MouseSimNao > 0) then Opcao1 = MouseSimNao - 1
-    if (MouseDisparou = 1) and (MouseSimNao > 0) then LMTec = " "
+    LMTec = inkey
+    GetMouseState
+    if ((GMMove = 1) or (GMBDown = 1)) and (MouseSimNao > 0) then Opcao1 = MouseSimNao - 1
+    if (GMBDown = 1) and (MouseSimNao > 0) then LMTec = " "
     if (LmTec = c255 + "H") or (LmTec = c255 + "K") or (LmTec = c255 + "M") or (LmTec = c255 + "P") then Opcao1 = 1 - Opcao1
     TrocaTelas
-    jogo.seqciclo=(jogo.seqciclo+1) mod 360
+    GJogo.seqciclo=(GJogo.seqciclo+1) mod 360
   wend
   cls
   LimpaTeclado 1
@@ -4244,16 +4108,16 @@ end sub
 
 'Grava situação para possível futuro UNDO
 sub GravaUndo
-  dim as integer F, G
+  dim as integer f, g
   for f = -1 to 100
     for g = -1 to 60
       UndoFrente (MatrizAtual, f, g) = Frente (f, g)
       UndoFundo  (MatrizAtual, f, g) = Fundo  (f, g)
-      UndoObjeto (MatrizAtual, f, g) = Objeto (F, g).tp
+      UndoObjeto (MatrizAtual, f, g) = Objeto (f, g).tp
     next
   next
-  BonecoX (MatrizAtual) = Boneco.X
-  BonecoY (MatrizAtual) = Boneco.Y
+  BonecoX (MatrizAtual) = GBoneco.X
+  BonecoY (MatrizAtual) = GBoneco.Y
   if MatrizAtual = MaxUndo then
     MatrizAtual = 0
   else
@@ -4271,17 +4135,17 @@ end sub
 
 'Faz um undo no editor
 sub FazUndo
-  dim as integer F, G
+  dim as integer f, g
   if MatrizAtual = MatrizRedoLimite then
     for f = -1 to 100
       for g = -1 to 60
         UndoFrente (MatrizAtual, f, g) = Frente (f, g)
         UndoFundo  (MatrizAtual, f, g) = Fundo  (f, g)
-        UndoObjeto (MatrizAtual, f, g) = Objeto (F, g).tp
+        UndoObjeto (MatrizAtual, f, g) = Objeto (f, g).tp
       next
     next
-    BonecoX (MatrizAtual) = Boneco.X
-    BonecoY (MatrizAtual) = Boneco.Y
+    BonecoX (MatrizAtual) = GBoneco.X
+    BonecoY (MatrizAtual) = GBoneco.Y
   end if
   if MatrizAtual <> MatrizUndoLimite then
     if MatrizAtual = 0 then
@@ -4293,17 +4157,17 @@ sub FazUndo
       for g = -1 to 60
         Frente (f, g)    = UndoFrente (MatrizAtual, f, g)
         Fundo  (f, g)    = UndoFundo  (MatrizAtual, f, g)
-        Objeto (F, g).tp = UndoObjeto (MatrizAtual, f, g)
+        Objeto (f, g).tp = UndoObjeto (MatrizAtual, f, g)
       next
     next
-    Boneco.X = BonecoX (MatrizAtual)
-    Boneco.Y = BonecoY (MatrizAtual)
+    GBoneco.X = BonecoX (MatrizAtual)
+    GBoneco.Y = BonecoY (MatrizAtual)
   end if
 end sub
 
 'Faz um redo no editor
 sub FazRedo
-  dim as integer F, G
+  dim as integer f, g
   if MatrizAtual <> MatrizRedoLimite then
     if MatrizAtual = MaxUndo then
       MatrizAtual = 0
@@ -4314,11 +4178,11 @@ sub FazRedo
       for g = -1 to 60
         Frente (f, g)    = UndoFrente (MatrizAtual, f, g)
         Fundo  (f, g)    = UndoFundo  (MatrizAtual, f, g)
-        Objeto (F, g).tp = UndoObjeto (MatrizAtual, f, g)
+        Objeto (f, g).tp = UndoObjeto (MatrizAtual, f, g)
       next
     next
-    Boneco.X = BonecoX (MatrizAtual)
-    Boneco.Y = BonecoY (MatrizAtual)
+    GBoneco.X = BonecoX (MatrizAtual)
+    GBoneco.Y = BonecoY (MatrizAtual)
   end if
 end sub
 
@@ -4339,7 +4203,7 @@ sub LimpaTeclado (IncLMTec as integer = 0)
   EsperaMais = 1
   while EsperaMais = 1
     EsperaMais = 0
-    for F = 0 to 127
+    for f = 0 to 127
       if multikey (f) then EsperaMais = 1
     next
     sleep 1, 1
@@ -4349,37 +4213,36 @@ sub LimpaTeclado (IncLMTec as integer = 0)
   wend
 end sub
 
-'Faz a leitura do mouse
-sub LeMouse
-  MouseXAnt = MouseX
-  MouseYAnt = MouseY
-  MouseBAnt = MouseB
-  'MouseW, MouseWAnt, MouseWDir
-  MouseWAnt = MouseW
-  getmouse (MouseX, MouseY, MouseW, MouseB)
-  MouseB = MouseB and 1
-  if MouseB = 1 and MouseBAnt = 0 then MouseDisparou = 1 else MouseDisparou = 0
-  if MouseB = 0 and MouseBAnt = 1 then MouseLiberou = 1 else MouseLiberou = 0
-  if (MouseXAnt <> MouseX) or (MouseYAnt <> MouseY) then MouseMoveu = 1 else MouseMoveu = 0
-  MouseWDir = sgn (MouseW - MouseWAnt)
+' Faz a leitura do mouse
+sub GetMouseState
+  GMXOld = GMX
+  GMYOld = GMY
+  GMBOld = GMB
+  GMWOld = GMW
+  getmouse(GMX, GMY, GMW, GMB)
+  GMB = GMB and 1
+  if GMB = 1 and GMBOld = 0 then GMBDown = 1 else GMBDown = 0
+  if GMB = 0 and GMBOld = 1 then GMBUp = 1 else GMBUp = 0
+  if (GMXOld <> GMX) or (GMYOld <> GMY) then GMMove = 1 else GMMove = 0
+  MouseWDir = sgn(GMW - GMWOld)
 end sub
 
-'Faz a mudança de um status para outro, arranjando os parametros necessários
-sub MudaStatus (NovoStatus as integer)
-  Jogo.StatusAnt = Jogo.Status
+' Faz a mudança de um status para outro, arranjando os parametros necessários
+sub MudaStatus(NovoStatus as integer)
+  GJogo.StatusAnt = GJogo.Status
   select case NovoStatus
   case NoMenu
     LimpaTeclado
-    TTDemo1 = Clock
+    GDemoTimer = Clock
   case GameOver
-    GenerateAndPlaySoundGameOver
+    PlaySoundGameOver
     XM =0
   case Instruc
-    Jogo.TelaInstr = 0
+    GJogo.TelaInstr = 0
   case Top10
     LeTopDez
   case Editor
-    Jogo.EdStatus = Editando
+    GJogo.EdStatus = Editando
     EdShow = 2
     EdMOn=0
     EdGrid=0
@@ -4402,24 +4265,24 @@ sub MudaStatus (NovoStatus as integer)
   case SelIdioma
     '
   end select
-  Jogo.Status = NovoStatus
+  GJogo.Status = NovoStatus
 end sub
 
-'Pede confirmação se é pra encerrar o teste da mina sendo editada
+' Pede confirmação se é pra encerrar o teste da mina sendo editada
 function PerguntaSeEncerraTeste() as integer
-  Mensagem 0, 5, TXT (95), "", "", 400, 300, Opcao1
+  Mensagem 0, 5, GText(95), "", "", 400, 300, Opcao1
   if (Tecla <> UltTecla) and (Tecla = "R" or Tecla = "U" or Tecla = "D" or Tecla = "L") then
     Opcao1 = 1 - Opcao1
   end if
-  if ((MouseMoveu = 1) or (MouseDisparou = 1)) and (MouseSimNao > 0) then Opcao1 = MouseSimNao - 1
-  if (Opcao1 = 1 and ((MouseDisparou = 1) or ((Tecla <> UltTecla) and (Tecla = "[" or Tecla = "]")))) or (Tecla = "ESC" and UltTecla <> Tecla) then
+  if ((GMMove = 1) or (GMBDown = 1)) and (MouseSimNao > 0) then Opcao1 = MouseSimNao - 1
+  if (Opcao1 = 1 and ((GMBDown = 1) or ((Tecla <> UltTecla) and (Tecla = "[" or Tecla = "]")))) or (Tecla = "ESC" and UltTecla <> Tecla) then
     MudaStatus Testando
-    LeMinaOUT -1, 0
+    LoadCustomMineFromFile -1, 0
     Iniciado = 0
     IniciaVida
     return 1
   elseif Opcao1 = 0 then
-    if (MouseDisparou = 1) or ((Tecla <> UltTecla) and (Tecla = "[" or Tecla = "]")) then
+    if (GMBDown = 1) or ((Tecla <> UltTecla) and (Tecla = "[" or Tecla = "]")) then
       EncerraTeste
       return 2
     end if

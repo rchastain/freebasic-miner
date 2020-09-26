@@ -7,7 +7,6 @@
 #define DWord uinteger
 #endif
 
-'Som
 type TSons
   COn1  as DWord
   COn2  as DWord
@@ -15,7 +14,6 @@ type TSons
   Tempo as ubyte
 end type
 
-'Sons
 #ifdef __FB_WIN32__
 dim shared hMidiOut as HMIDIOUT
 #else
@@ -43,8 +41,8 @@ declare sub Sound10
 declare sub Sound11
 declare sub Sound12
 declare sub Sound13(XTam1 as integer)
-declare sub PlaySoundGameOver(Nota as integer)
-declare sub PlaySoundGameWon(Nota as integer)
+declare sub PlaySoundGameOver overload(Nota as integer)
+declare sub PlaySoundGameWon overload(Nota as integer)
 declare sub TurnOffSounds
 
 #include once "sound.bas"
