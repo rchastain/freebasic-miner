@@ -7,7 +7,7 @@ enum
   Sobre
   Volume
   EscIdioma
-  Custom_
+  CustomMines
   Editar
   Sair
 end enum
@@ -144,7 +144,7 @@ end type
 
 ' Editor
 type EdTipo
-  Tp      as integer  ' 0=fundo; 1=obj; 2=frente
+  Typ     as integer  ' 0=fundo; 1=obj; 2=frente
   Cod     as integer  ' Código do fundo, objeto ou frente
 end type
 
@@ -169,7 +169,7 @@ type TObjectData
 end type
 
 ' Mensagens na tela
-type TScreenMessage
+type TMessage
   Ciclo  as integer ' 0=Acabou
   Pontos as integer
   X as integer
@@ -178,7 +178,7 @@ end type
 
 ' Tiles
 type TObj
-  Tp         as ubyte    ' Indicador do tipo de objeto
+  Typ        as ubyte    ' Indicador do tipo de objeto
   Caindo     as byte     ' 0=não; 1=sim
   AntCaindo  as byte     ' Se já estava caindo anteriormente
   Empurrando as byte     ' 0=não; 1=direita; 2=esquerda
@@ -186,7 +186,7 @@ type TObj
 end type
 
 ' Top Score
-type Recorde
+type TBestScore
   Nome   as string    ' Nome
   Pontos as uinteger  ' Pontuação
 end type

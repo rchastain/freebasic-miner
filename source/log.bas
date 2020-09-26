@@ -1,5 +1,5 @@
 
-sub LogLn(AText as string, ARewrite as boolean)
+sub LogLn(byref AText as const string, byref ARewrite as const boolean)
 #ifdef DEBUG
   const as string CFileName = "miner.log"
   dim as integer LFile = freefile
