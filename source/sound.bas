@@ -134,7 +134,7 @@ sub Sound05
 #endif
 end sub
 
-sub PlaySoundCannotUse
+sub PlaySoundImpossibleAction
 #ifdef __FB_WIN32__
   midiOutShortMsg(hMidiOut, SomEx(6).COn1)
   midiOutShortMsg(hMidiOut, SomEx(6).COn2)
@@ -170,11 +170,11 @@ sub Sound08
   next
 end sub
 
-sub Sound09
+sub PlaySoundTop10
 #ifdef __FB_WIN32__
   midiOutShortMsg(hMidiOut, &H6f0087 or UltNotaGameOver)
 #else
-  windowtitle "Sound09"
+  windowtitle "PlaySoundTop10"
 #endif
 end sub
 

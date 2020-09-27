@@ -33,10 +33,10 @@ declare sub Sound02
 declare sub Sound03
 declare sub Sound04
 declare sub Sound05
-declare sub PlaySoundCannotUse
+declare sub PlaySoundImpossibleAction
 declare sub Sound07(ASom as integer)
 declare sub Sound08
-declare sub Sound09
+declare sub PlaySoundTop10
 declare sub Sound10
 declare sub Sound11
 declare sub Sound12

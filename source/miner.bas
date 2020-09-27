@@ -127,7 +127,7 @@ dim shared as double GTimeStart
 ' Jogo
 dim shared GJogo as TJogo
 dim shared GBoneco as TBoneco
-dim shared as TMina Mina
+dim shared GMina as TMina
 dim shared PontoTesouro(7 to 22) as integer
 dim shared as integer TmpSleep, GBonus, Quadros, ultQuadros
 dim shared as double GTimer1, GTimer2
@@ -518,7 +518,7 @@ end with
 ' Espetos (82-84)
 for f = 0 to 2
   with GObjectData(f + 82)
-    .tipo = 13
+    .Tipo = 13
     .Img  = 233 + f
     .item = 0
   end with
@@ -835,7 +835,7 @@ sub Desenha
   dim as integer TRX, TRY, TRXa, TRYa, Explodindo
   ' Verifica se há explosão, para tremer a imagem
   for f = 0 to 10
-    if explosao(f).tipo > 0 and explosao(f).tempo < 10 then explodindo = 1
+    if explosao(f).Tipo > 0 and explosao(f).tempo < 10 then explodindo = 1
   next
   ' Calcula que parte da tela deve ser mostrada
   if (GJogo.Status = ModoMapa) or (GJogo.status = Top10) or (GJogo.Status = Editor) then
@@ -846,11 +846,11 @@ sub Desenha
   else
     with GBoneco
       ' Calcula o X inicial da tela
-      if Mina.Larg < 25 or .X < 12 then
+      if GMina.Larg < 25 or .X < 12 then
         TRX  = 0
         TRXa = 0
-      elseif .X > Mina.Larg - 12 then
-        TRX  = Mina.LArg - 24
+      elseif .X > GMina.Larg - 12 then
+        TRX  = GMina.Larg - 24
         TRXa = 0
       elseif .DirAtual = 1 then
         TRX  = .X - 12
@@ -866,13 +866,13 @@ sub Desenha
         TRX  = 0
         TRXa = 0
       end if
-      if .x = Mina.Larg - 12 and .DirAtual = 1 then TRXa = 0
+      if .x = GMina.Larg - 12 and .DirAtual = 1 then TRXa = 0
       ' Calcula o Y inicial da tela
-      if Mina.ALT < 17 or .Y < 8 then
+      if GMina.ALT < 17 or .Y < 8 then
         TRY  = 0
         TRYa = 0
-      elseif .Y > Mina.ALT - 8 then
-        TRY  = Mina.ALT - 16
+      elseif .Y > GMina.ALT - 8 then
+        TRY  = GMina.ALT - 16
         TRYa = 0
       elseif .DirAtual > 3 then
         TRY  = .Y - 8
@@ -888,10 +888,10 @@ sub Desenha
         TRY  = 0
         TRYa = 0
       end if
-      if .Y = Mina.ALT - 8 and .DirAtual > 3 then TRYa = 0
+      if .Y = GMina.ALT - 8 and .DirAtual > 3 then TRYa = 0
     end with
   end if
-  if (mina.noturno = 0) or (GJogo.Status = Editor) then
+  if (GMina.noturno = 0) or (GJogo.Status = Editor) then
     df1 = 0
     df2 = 25
     dg1 = 0
@@ -1025,13 +1025,13 @@ sub Desenha
   next
   ' Desenha Lanterna (layer 5, Alpha variável)
   if GJogo.Status <> Editor then
-    if mina.noturno = 1 then
+    if GMina.noturno = 1 then
       put (TRXa + GBoneco.ImgX - (TRX * 32) - 208, TRYa + GBoneco.ImgY - (TRY * 32) - 208), GBitmap(275), (0, 0) - (443, 443), alpha
     end if
     ' Desenha explosões (layer 6, trans)
     for f = 0 to 10
       with Explosao(f)
-        if .tipo > 0 then
+        if .Tipo > 0 then
           for g = (.Tipo = 2) to - (.Tipo = 2)
             for h = -1 to 1
               put(TRXa + (.x - TRX + h) * 32, TRYa + (.y - TRY + g) * 32), GBitmap(185 + int(.tempo / 3)), alpha
@@ -1044,7 +1044,7 @@ sub Desenha
         .tempo += 1
         if .tempo >= 35 then
           .tempo = 0
-          .tipo  = 0
+          .Tipo  = 0
         endif
       end with
     next
@@ -1115,18 +1115,18 @@ sub Desenha
       ' Qtde Itens Bombona
       EscreveNumero .ItBombona, 1, 532, 575, 0
       ' Quantidade de pedras a recolher
-      EscreveNumero Mina.Tesouros, 2, 550, 575, 0
+      EscreveNumero GMina.Tesouros, 2, 550, 575, 0
       ' Vidas
       EscreveNumero .Vidas, 2, 582, 576, 0
     end with
     ' Tempo Maximo
-    if Mina.Tempo > 0 then
-      EscreveNumero mina.Tempo \ 60, 2, 655, 556, 1
-      EscreveNumero Mina.Tempo mod 60, 2, 683, 556, 1
-      if mina.tempo - GBoneco.tempo >= 20 or GJogo.Status <> Jogando then
+    if GMina.Tempo > 0 then
+      EscreveNumero GMina.Tempo \ 60, 2, 655, 556, 1
+      EscreveNumero GMina.Tempo mod 60, 2, 683, 556, 1
+      if GMina.tempo - GBoneco.tempo >= 20 or GJogo.Status <> Jogando then
         put (642, 578), GBitmap(238), (48, 0)-step(9, 14), trans
       else
-        if (GJogo.SeqCiclo mod 2 = 1) or (GJogo.status = VenceuJogo) then put (642, 578), GBitmap(238), (int ((mina.tempo - GBoneco.tempo) / 5) * 12, 0)-step(9, 14), trans
+        if (GJogo.SeqCiclo mod 2 = 1) or (GJogo.status = VenceuJogo) then put (642, 578), GBitmap(238), (int ((GMina.tempo - GBoneco.tempo) / 5) * 12, 0)-step(9, 14), trans
       end if
     end if
     if GJogo.SeqCiclo mod 2 = 1 and GBoneco.morreu = 0 and iniciado > 0 and GJogo.status <> VenceuJogo then
@@ -1422,7 +1422,7 @@ sub LoadCustomMine(NMina as integer, Editando as integer)
   dim as string Linha, NArq
   LimpaMina
   ' Zera contador de tesouros para iniciar a contagem
-  Mina.Tesouros = 0
+  GMina.Tesouros = 0
   ' Abre arquivo
   if NMina = -1 then
     NArq = "minas/teste.map"
@@ -1432,12 +1432,12 @@ sub LoadCustomMine(NMina as integer, Editando as integer)
   end if
   ' Verifica se o arquivo existe
   if fileexists (Narq) then
-    if NMina > -1 then Mina.numero = NMina
+    if NMina > -1 then GMina.numero = NMina
     open Narq for binary as #1
-    get #1,, Mina.LArg
-    get #1,, Mina.Alt
-    get #1,, Mina.Noturno
-    get #1,, Mina.Tempo
+    get #1,, GMina.Larg
+    get #1,, GMina.Alt
+    get #1,, GMina.Noturno
+    get #1,, GMina.Tempo
     LeMinaDet Editando
     close #1
   else ' Arquivo não existe
@@ -1554,7 +1554,7 @@ sub Joga
             MudaStatus Jogando
             IniciaJogo
             IniciaVida
-            Mina.Tipo = 0
+            GMina.Tipo = 0
             LoadMine 1
             Iniciado=0
             GTimeStart = Clock + 5
@@ -1598,7 +1598,7 @@ sub Joga
       end if
       if Clock > GDemoTimer + 8 then
         MudaStatus ModoDemo
-        Mina.Tipo = 0
+        GMina.Tipo = 0
         IniciaJogo
         IniciaVida
         LoadMine 0
@@ -1650,7 +1650,7 @@ sub Joga
       DrawBackground
       PutLogo 290, 40
       select case OpMenu
-      case IrPara ' Ir para Mina...
+      case IrPara ' Ir para mina...
         if GBoneco.Mina < 1 or GBoneco.Mina > GJogo.NumMinas then GBoneco.Mina = 1
         EscreveCentro GText(51), 140, 1, 0
         EscreveCentro GText(52), 575, 1, 0
@@ -1711,7 +1711,7 @@ sub Joga
               IniciaJogo
               IniciaVida
               GBoneco.Mina = XM
-              Mina.Tipo = 0
+              GMina.Tipo = 0
               LoadMine XM
               Iniciado = 0
               GTimeStart = Clock + 5
@@ -1858,7 +1858,7 @@ sub Joga
               IniciaJogo
               IniciaVida
               GBoneco.Mina = XM
-              Mina.Tipo = 1
+              GMina.Tipo = 1
               Iniciado = 0
               GTimeStart = Clock + 5
               if OpMenu = Editar then
@@ -1876,7 +1876,7 @@ sub Joga
           end if
         end if
       end select
-    case Jogando, ModoDemo, Testando ' JOGANDO; MODO DEMONSTRAÇÃO; TESTANDO MINA EM EDIÇÃO
+    case Jogando, ModoDemo, Testando
       if GJogo.Status = ModoDemo then
         ' No modo demo, qualquer tecla faz voltar pro menu
         for f= 1 to 127
@@ -1893,7 +1893,7 @@ sub Joga
       ' Verifica se acabou o tempo
       if (GJogo.SeqCiclo mod 8 = 0) and (GJogo.Ciclo = 0) and (iniciado > 0) and (GBoneco.morreu = 0) then
         GBoneco.Tempo += 1
-        if (GBoneco.tempo >= mina.tempo) and (mina.tempo > 0) and (GJogo.Status = Jogando) then
+        if (GBoneco.tempo >= GMina.tempo) and (GMina.tempo > 0) and (GJogo.Status = Jogando) then
           GBoneco.morreu = 1
         end if
       end if
@@ -1902,20 +1902,20 @@ sub Joga
         select case GKey
         case "M"  'Mapa
           with GBoneco
-            if (mina.Larg > 24 or mina.Alt > 16) then
+            if (GMina.Larg > 24 or GMina.Alt > 16) then
               ' Calcula o X inicial da tela
-              if (Mina.Larg < 25) or (.X <= 12) then
+              if (GMina.Larg < 25) or (.X <= 12) then
                 MapX=0
-              elseif .X >= Mina.Larg - 12 then
-                MapX = Mina.LArg - 24
+              elseif .X >= GMina.Larg - 12 then
+                MapX = GMina.Larg - 24
               else
                 MapX = .X - 12
               end if 
               ' Calcula o Y inicial da tela
-              if (Mina.Alt < 17) or (.Y <= 8) then
+              if (GMina.Alt < 17) or (.Y <= 8) then
                 MapY = 0
-              elseif .Y> Mina.Alt-8 then
-                MapY = Mina.Alt-16
+              elseif .Y> GMina.Alt-8 then
+                MapY = GMina.Alt-16
               else
                 MapY = .Y-8
               end if
@@ -1976,12 +1976,12 @@ sub Joga
         ' Conclui movimentação de objetos empurrados
         if GBoneco.Empurrando = 1 then
           if GBoneco.DirAtual = 1 then
-            Emp1 = Mina.Larg
+            Emp1 = GMina.Larg
             Emp2 = 0
             Emp3 = -1
           else
             Emp1 = 0
-            Emp2 = Mina.Larg
+            Emp2 = GMina.Larg
             Emp3 = 1
           end if
           for f = Emp1 to Emp2 step Emp3
@@ -2056,7 +2056,7 @@ sub Joga
                 MudaStatus GameOver
               else
                 GBoneco.Vidas -= 1
-                if Mina.Tipo = 0 then
+                if GMina.Tipo = 0 then
                   LoadMine GBoneco.Mina
                 else
                   LoadCustomMine GBoneco.Mina, 0
@@ -2067,8 +2067,8 @@ sub Joga
             end if
           'Se não pressionou ESC nem estava morto, verifica se está parado em posição de cair
               '(1-parado; 2-não está na escada; 3-não está sobre objeto que o apoie, ou o objeto de baixo está caindo, ou o objeto de baixo mata)
-          elseif Iniciado = 1 and .DirAtual = 0 and .y < Mina.Alt and comport(GObjectData(GObject(.x, .y).Typ).tipo).sobe = 0 and _
-            (comport(GObjectData (GObject(.x, .y + 1).Typ).tipo).apoia = 0 or GObject(.x, .y + 1).caindo = 1 or comport(GObjectData(GObject(.x, .y + 1).Typ).tipo).mata = 1) then
+          elseif Iniciado = 1 and .DirAtual = 0 and .y < GMina.Alt and comport(GObjectData(GObject(.x, .y).Typ).Tipo).sobe = 0 and _
+            (comport(GObjectData (GObject(.x, .y + 1).Typ).Tipo).apoia = 0 or GObject(.x, .y + 1).caindo = 1 or comport(GObjectData(GObject(.x, .y + 1).Typ).Tipo).mata = 1) then
 
             'Informa queda, eliminando outros movimentos ou ações (ficam perdidas)
             .DirAtual   = 5
@@ -2076,7 +2076,7 @@ sub Joga
             .NaFuradeira  = 0
             .NaPicareta   = 0
             .Passo      = 1
-            if comport(GObjectData(GObject(.x, .y + 1).Typ).tipo).mata = 1 then .morreu = 1
+            if comport(GObjectData(GObject(.x, .y + 1).Typ).Tipo).mata = 1 then .morreu = 1
 
           'Se não está morto, nem pediu pra morrer, nem vai cair, verifica se está usando a picareta
           elseif .NaPicareta > 0 then
@@ -2105,10 +2105,10 @@ sub Joga
               .NaFuradeira = 0
               .VirouFuradeira = 0
             elseif .VirouFuradeira = 0 and .Nafuradeira <= GJogo.Passos then
-              if .DirFuradeira = 1 and GKey = "L" and comport(GObjectData(GObject(.x - 1, .y).Typ).tipo).destroi = 2 and GObject(.x - 1, .y).caindo = 0 then
+              if .DirFuradeira = 1 and GKey = "L" and comport(GObjectData(GObject(.x - 1, .y).Typ).Tipo).destroi = 2 and GObject(.x - 1, .y).caindo = 0 then
                 .VirouFuradeira = 1
                 .DirFuradeira = 2
-              elseif .dirfuradeira = 2 and GKey = "R" and comport(GObjectData(GObject(.x + 1, .y).Typ).tipo).destroi = 2 and GObject(.x + 1, .y).caindo = 0 then
+              elseif .dirfuradeira = 2 and GKey = "R" and comport(GObjectData(GObject(.x + 1, .y).Typ).Tipo).destroi = 2 and GObject(.x + 1, .y).caindo = 0 then
                 .viroufuradeira = 1
                 .dirfuradeira = 1
               end if
@@ -2123,12 +2123,12 @@ sub Joga
             case "U"
               'Se não está no topo e está em uma escada
               .UltDir = 3
-              if .y > 0 and Comport(GObjectData(GObject(.x, .y).Typ).tipo).sobe = 1 then
-                if comport(GObjectData(GObject(.x, .y - 1).Typ).tipo).mata = 1 then
+              if .y > 0 and Comport(GObjectData(GObject(.x, .y).Typ).Tipo).sobe = 1 then
+                if comport(GObjectData(GObject(.x, .y - 1).Typ).Tipo).mata = 1 then
                   .morreu = 1
                 else
                   'Se o objeto de cima está livre
-                  if Comport(GObjectData(GObject(.x, .y - 1).Typ).tipo).anda > 0 then
+                  if Comport(GObjectData(GObject(.x, .y - 1).Typ).Tipo).anda > 0 then
                     'Atualiza direção e inicia movimento
                     .DirAtual = 3
                     .Passo    = 1
@@ -2142,18 +2142,18 @@ sub Joga
             case "D"
               'Se não está no fundo
               .UltDir = 5
-              if .y < Mina.Alt then
-                  if comport(GObjectData(GObject(.x, .y + 1).Typ).tipo).mata = 1 then
+              if .y < GMina.Alt then
+                  if comport(GObjectData(GObject(.x, .y + 1).Typ).Tipo).mata = 1 then
                   .morreu = 1
                 else
                   'Se o objeto de baixo for uma escada, então desce
-                  if Comport(GObjectData(GObject(.x,.y + 1).Typ).tipo).sobe = 1 then
+                  if Comport(GObjectData(GObject(.x,.y + 1).Typ).Tipo).sobe = 1 then
                     'Atualiza direção e inicia movimento
                     .DirAtual = 4
                     .UltDir   = 4
                     .Passo    = 1
                   'Se abaixo não for escada, verifica se permite andar
-                  elseif comport(GObjectData(GObject(.x, .y + 1).Typ).tipo).anda > 0 then
+                  elseif comport(GObjectData(GObject(.x, .y + 1).Typ).Tipo).anda > 0 then
                     'Atualiza direção e inicia movimento (queda)
                     .DirAtual = 5
                     .UltDir   = 5
@@ -2170,11 +2170,11 @@ sub Joga
               'Se não está no extremo esquerdo
               if .X > 0 then
                 'Verifica se foi na direção de objeto que mata
-                if comport(GObjectData(GObject(.x - 1, .y).Typ).tipo).mata = 1 then
+                if comport(GObjectData(GObject(.x - 1, .y).Typ).Tipo).mata = 1 then
                   .morreu = 1
                 else
                   'Se o objeto da esquerda permite andar e objeto da esquerda acima não está caindo
-                  if comport(GObjectData(GObject(.x - 1, .y).Typ).tipo).anda > 0 and GObject(.x - 1, .y - 1).caindo = 0 then
+                  if comport(GObjectData(GObject(.x - 1, .y).Typ).Tipo).anda > 0 and GObject(.x - 1, .y - 1).caindo = 0 then
                     'Atualiza direção e inicia movimento (queda)
                     .DirAtual = 2
                     .Passo    = 1
@@ -2194,12 +2194,12 @@ sub Joga
               .UltDir = 1
               .DirFuradeira = 1
               'Se não está no extremo direito
-              if .x < Mina.Larg then
-                if comport(GObjectData(GObject(.x + 1, .y).Typ).tipo).mata = 1 then
+              if .x < GMina.Larg then
+                if comport(GObjectData(GObject(.x + 1, .y).Typ).Tipo).mata = 1 then
                   .morreu = 1
                 else
                   'Se o objeto da direita permite andar e objeto da direita acima não está caindo
-                  if comport(GObjectData(GObject(.x + 1, .y).Typ).tipo).anda > 0 and GObject(.x + 1, .y - 1).caindo = 0 then
+                  if comport(GObjectData(GObject(.x + 1, .y).Typ).Tipo).anda > 0 and GObject(.x + 1, .y - 1).caindo = 0 then
                     .DirAtual = 1
                     .Passo    = 1
                     'Pega e limpa objeto do destino, conforme o caso
@@ -2217,11 +2217,11 @@ sub Joga
             'Usar Suporte
             case "Z"
             if GKeyBefore <> "Z" then
-              if Comport(GObjectData(GObject(.x, .y).Typ).tipo).apoia = 0 and .ItSuporte > 0 then
+              if Comport(GObjectData(GObject(.x, .y).Typ).Tipo).apoia = 0 and .ItSuporte > 0 then
                 GObject(.x, .y).Typ = 81
                 .ItSuporte -= 1
               else
-                PlaySoundCannotUse
+                PlaySoundImpossibleAction
               end if
             end if
             'Usar Picareta
@@ -2231,7 +2231,7 @@ sub Joga
                   .ItPicareta -= 1
                   .NaPicareta  = 1
                 else
-                  PlaySoundCannotUse
+                  PlaySoundImpossibleAction
                 end if
               end if
             'Usar Furadeira
@@ -2243,16 +2243,16 @@ sub Joga
                     .ItFuradeira  -= 1
                     .NaFuradeira   = 1
                     .VirouFuradeira  = 0
-                    Sound07(comport(GObjectData(GObject(.x + 1, .y).Typ).tipo).som)
+                    Sound07(comport(GObjectData(GObject(.x + 1, .y).Typ).Tipo).som)
                   elseif Comport(GObjectData(GObject(.x - 1, .y).Typ).Tipo).Destroi = 2 and GObject(.x - 1,.y).caindo = 0 then
                     .DirFuradeira  = 2
                     .ItFuradeira  -= 1
                     .NaFuradeira   = 1
                     .VirouFuradeira  = 0
-                    Sound07(comport(GObjectData(GObject(.x - 1, .y).Typ).tipo).som)
+                    Sound07(comport(GObjectData(GObject(.x - 1, .y).Typ).Tipo).som)
                   end if
                 else
-                  PlaySoundCannotUse
+                  PlaySoundImpossibleAction
                 end if
               end if
             'Aciona bomba pequena
@@ -2263,7 +2263,7 @@ sub Joga
                   GObject(.x, .y).Typ    = 77
                   GObject(.x, .y).Passo   = 1
                 else
-                  PlaySoundCannotUse
+                  PlaySoundImpossibleAction
                 end if
               end if
             'Aciona bomba grande
@@ -2274,22 +2274,24 @@ sub Joga
                   GObject(.x,.y).Typ   = 79
                   GObject(.x,.y).Passo  = 1
                 else
-                  PlaySoundCannotUse
+                  PlaySoundImpossibleAction
                 end if
               end if
-            '****DESATIVAR:::
-            'Pula a mina
+            ' Pula a mina
             case "TAB"
+              /'
               if GKeyBefore <> "TAB" and GJogo.Status = Jogando then
                 GJogo.SeqCiclo = 0
                 MudaStatus VenceuMina
                 CalculaBonusTempo
               end if
+              '/
             end select
           end if
-          'Atualizar oxigenio - Se estiver vivo e no momento de atualizar (GJogo.Ciclo=0)
-          if Iniciado = 1 and GJogo.Ciclo = 0 and .morreu = 0 then
-            if (Fundo(.X, .Y) = 0 and (.DirAtual <> 3 or Fundo(.X, .Y - 1) = 0 or .Passo < GJogo.Passos / 2)) or (fundo(.x, .y + 1)=0 and .DirAtual > 3 and .Passo >= GJogo.Passos / 2) then
+          ' Atualizar oxigenio - Se estiver vivo e no momento de atualizar (GJogo.Ciclo=0)
+          if (Iniciado = 1) and (GJogo.Ciclo = 0) and (.morreu = 0) then
+            if ((Fundo(.X, .Y) = 0) and ((.DirAtual <> 3) or (Fundo(.X, .Y - 1) = 0) or (.Passo < GJogo.Passos / 2))) _
+            or ((fundo(.x, .Y + 1) = 0) and (.DirAtual > 3) and (.Passo >= GJogo.Passos / 2)) then
               if .Oxigenio > 10 then .NoOxigenio = 1
               .Oxigenio -= 1
               if .Oxigenio < 0 then
@@ -2307,59 +2309,58 @@ sub Joga
               if .Oxigenio < 10 then .Oxigenio += 1
             end if
           end if
-        end with 'GBoneco
-        'Verifica Movimentação dos Objetos
+        end with ' GBoneco
+        ' Verifica Movimentação dos objetos
         if Iniciado = 1 then
           with GBoneco
-            'Se estiver indo para a direita, faz a leitura ao contrário
-            if .diratual = 1 or (.DirAtual = 0 and .UltDir = 1) then
-              Emp1 = Mina.Larg
+            ' Se estiver indo para a direita, faz a leitura ao contrário
+            if (.diratual = 1) or (.DirAtual = 0) and (.UltDir = 1) then
+              Emp1 = GMina.Larg
               Emp2 = 0
               Emp3 = -1
             else
               Emp1 = 0
-              Emp2 = Mina.Larg
+              Emp2 = GMina.Larg
               Emp3 = 1
             end if
           end with
-          'Roda todos os objetos verificando-os   (1 a 1)
+          ' Roda todos os objetos verificando-os   (1 a 1)
           for f = Emp1 to Emp2 step Emp3
-            for g = Mina.Alt to 0 step -1
+            for g = GMina.Alt to 0 step -1
               with GObject(f, g)
-                'Verifica se há movimento
-                if .Passo > 0 or .empurrando > 0 then
-                  'Dá sequencia
+                ' Verifica se há movimento
+                if (.Passo > 0) or (.empurrando > 0) then
+                  ' Dá sequencia
                   .Passo += 1
-                  if .Typ >= 77 and .Typ <= 80 then
-                    .Typ = 77 + 2 * int((.Typ - 77) / 2) + (.passo mod 2)
+                  if (.Typ >= 77) and (.Typ <= 80) then
+                    .Typ = 77 + 2 * ((.Typ - 77) \ 2) + (.passo mod 2)
                     if .Passo >= GJogo.Passos * 6 then
-                      Explode (f, g, int((.Typ - 77) / 2) )
+                      Explode (f, g, (.Typ - 77) \ 2)
                     end if
                   end if
-                  'Verifica se é queda e se com esse passo atingiu o boneco, que estava subindo
-                  if .Caindo = 1 and GBoneco.X = f and GBoneco.Y = g + 2 and GBoneco.DirAtual = 3 and (GBoneco.Passo + .Passo >= GJogo.Passos) then
+                  ' Verifica se é queda e se com esse passo atingiu o boneco, que estava subindo
+                  if (.Caindo = 1) and (GBoneco.X = f) and (GBoneco.Y = g + 2) and (GBoneco.DirAtual = 3) and (GBoneco.Passo + .Passo >= GJogo.Passos) then
                     if GBoneco.Morreu = 0 then
                       GBoneco.Morreu = 1
                       .Passo -= 1
                     end if
                   end if
-                  'Verifica se concluiu movimento (exceto bombas)
-                  if .Passo = GJogo.Passos and (.Typ < 77 or .Typ > 80)then
-                    'conclui queda
+                  ' Verifica se concluiu movimento (exceto bombas)
+                  if (.Passo = GJogo.Passos) and (.Typ < 77) or (.Typ > 80) then
                     if .Caindo = 1 then
-                      GObject(f, g + 1).AntCaindo  = 1 'informa que ciclo terminou, mas era queda
-                      GObject(f, g + 1).Typ     = .Typ
-                      GObject(f, g + 1).Passo    = 0
+                      GObject(f, g + 1).AntCaindo  = 1 ' Informa que ciclo terminou, mas era queda
+                      GObject(f, g + 1).Typ        = .Typ
+                      GObject(f, g + 1).Passo      = 0
                       GObject(f, g + 1).Empurrando = 0
-                      GObject(f, g + 1).Caindo   = 0
+                      GObject(f, g + 1).Caindo     = 0
                       .AntCaindo  = 0
-                      .Passo    = 0
+                      .Passo      = 0
                       .Empurrando = 0
-                      .Caindo   = 0
-                      .Typ     = 0
-                      'Verifica se a queda do objeto terminou, ou seja, chocou-se sobre outro objeto
-                      if GObject(f, g + 2).caindo = 0 and comport(GObjectData(GObject(f, g + 2).Typ).tipo).vazio = 0 then
-                        Toca(comport(GObjectData(GObject(f, g + 1).Typ).tipo).som, comport(GObjectData(GObject(f, g + 2).Typ).tipo).som) = 1
+                      .Caindo     = 0
+                      .Typ        = 0
+                      ' Verifica se a queda do objeto terminou, ou seja, chocou-se sobre outro objeto
+                      if (GObject(f, g + 2).caindo = 0) and (comport(GObjectData(GObject(f, g + 2).Typ).Tipo).vazio = 0) then
+                        Toca(comport(GObjectData(GObject(f, g + 1).Typ).Tipo).som, comport(GObjectData(GObject(f, g + 2).Typ).Tipo).som) = 1
                       end if
                     end if
                   end if
@@ -2378,7 +2379,7 @@ sub Joga
                     .Passo  = 1
                   end if
                 'Se não estava caindo, verifica se começa a cair (se não está apoiado por objeto ou pelo boneco)
-                elseif Comport(GObjectData(.Typ).Tipo).Cai = 1 and g < Mina.Alt and Comport(GObjectData(GObject(f, g + 1).Typ).Tipo).Apoia = 0 and _
+                elseif Comport(GObjectData(.Typ).Tipo).Cai = 1 and g < GMina.Alt and Comport(GObjectData(GObject(f, g + 1).Typ).Tipo).Apoia = 0 and _
                 GObject(f - 1,g + 1).Empurrando <> 1 and GObject(f + 1, g + 1).Empurrando <> 2 then
                   if GBoneco.morreu = 0 and (GBoneco.Y = g + 1 and (GBoneco.X = f or (GBoneco.X = f - 1 and GBoneco.DirAtual = 1) or _
                   (GBoneco.X = f + 1 and GBoneco.DirAtual = 2))) then
@@ -2392,7 +2393,7 @@ sub Joga
             next
           next
         end if
-        if Iniciado = 0 and mina.tesouros > 0 then
+        if Iniciado = 0 and GMina.tesouros > 0 then
           Desenha
           if GJogo.Status = Testando then
             Mensagem 1, 2, GText(60), GText(96), ""
@@ -2429,11 +2430,11 @@ sub Joga
         put (334 + rnd * (260-XM) / 75, 268 + rnd * (260 - XM) / 75), GBitmap(212), trans
         XM += 1
       else
-        Sound09
+        PlaySoundTop10
         GKey = "A"
       end if
       if GKey <> "" and GKey <> GKeyBefore then
-        Sound09
+        PlaySoundTop10
         PosTop10 = EntersTop10
         if PosTop10 > 0 then
           MudaStatus Top10
@@ -2456,10 +2457,10 @@ sub Joga
         if MapY < 0 then MapY = 0
       case "D"
         MapY += 1
-        if MapY > Mina.Alt - 16 then MapY -= 1
+        if MapY > GMina.Alt - 16 then MapY -= 1
       case "R"
         Mapx += 1
-        if MapX > Mina.Larg - 24 then MapX -= 1
+        if MapX > GMina.Larg - 24 then MapX -= 1
       case "L"
         MapX -= 1
         if MapX < 0 then MapX = 0
@@ -2471,7 +2472,7 @@ sub Joga
       'Verifica se acabou o tempo
       if (GJogo.SeqCiclo mod 5=0) and (GJogo.Ciclo=0) and (iniciado > 0) and (GBoneco.morreu = 0) then
         GBoneco.Tempo += 1
-        if (GBoneco.tempo>=mina.tempo) and (mina.tempo>0) then
+        if (GBoneco.tempo>=GMina.tempo) and (GMina.tempo>0) then
           GBoneco.morreu = 1
           GJogo.status = GJogo.StatusAnt
         end if
@@ -2515,7 +2516,7 @@ sub Joga
       if GJogo.StatusAnt = Testando then
         f = EndOfTestConfirmation
       else
-        if mina.Tipo = 0 then
+        if GMina.Tipo = 0 then
           if GBoneco.Mina < GJogo.NumMinas then
             Mensagem 2, 6, GText(76), GText(77) & ": " & str(GBonus), ""
           else
@@ -2525,7 +2526,7 @@ sub Joga
           Mensagem 2, 6, GText(78), GText(77) & ": " & str(GBonus), GText(79) & str(GBoneco.Pontos + GBonus)
         end if
         if GKey <> "" and GKey <> GKeyBefore then
-          if mina.Tipo = 0 then
+          if GMina.Tipo = 0 then
             if GBoneco.Mina = GJogo.NumMinas then
               MudaStatus VenceuJogo
               QtdNotasVenceu = 0
@@ -2701,8 +2702,8 @@ sub PegaObj(POX as integer, POY as integer)
       ConvertPointsToExtraLife PontoTesouro(GObjectData(GObject(POX, POY).Typ).Item)
       MarcaPt(PontoTesouro(GObjectData(GObject(POX, POY).Typ).Item), POX, POY)
       .Pontos += PontoTesouro(GObjectData(GObject(POX, POY).Typ).Item)
-      Mina.Tesouros -= 1
-      if Mina.Tesouros = 0 then
+      GMina.Tesouros -= 1
+      if GMina.Tesouros = 0 then
         GJogo.SeqCiclo = 0
         if GJogo.status = Jogando or GJogo.Status = Testando then 'Termina a fase
           GJogo.StatusAnt = GJogo.Status
@@ -2736,11 +2737,11 @@ function EmpurraObj (byval POX as integer, byval POY as integer, byval MDir as i
   Resultado= Comport(GObjectData(GObject(POX, POY).Typ).Tipo).PEmpurra
   XR = 3 - (MDir * 2)
   'Antes, verifica se o objeto não está caindo nem vai começar a cair agora
-  if (Comport(GObjectData(GObject(POX, POY).Typ).Tipo).Cai = 1 and POY < Mina.Alt and Comport(GObjectData(GObject(POX, POY + 1).Typ).Tipo).Apoia = 0) or GObject(POX, POY).Caindo = 1 then
+  if (Comport(GObjectData(GObject(POX, POY).Typ).Tipo).Cai = 1 and POY < GMina.Alt and Comport(GObjectData(GObject(POX, POY + 1).Typ).Tipo).Apoia = 0) or GObject(POX, POY).Caindo = 1 then
     Resultado = 5
   else
     'Só faz verificação se ainda não tiver chegado ao canto da mina
-    if POX > 0 and POX < Mina.Larg then
+    if POX > 0 and POX < GMina.Larg then
       if Resultado + Peso > 2 then
         Resultado = 3
       elseif Resultado = 2 then
@@ -2849,10 +2850,10 @@ sub LimpaMina
       GObject(f, g).Passo = 0
     next
   next
-  Mina.Larg = 99
-  Mina.Alt = 59
-  Mina.X = 0
-  Mina.Y = 0
+  GMina.Larg = 99
+  GMina.Alt = 59
+  GMina.X = 0
+  GMina.Y = 0
   GBoneco.X = 0
   GBoneco.Y = 0
   MAPX = 0
@@ -2931,16 +2932,16 @@ end sub
 
 ' Reinicia tabela de TOP 10
 sub MontaTopDez
-  GBestScore(0).Nome = "Top1" : GBestScore(0).Pontos = 15000
-  GBestScore(1).Nome = "Top2" : GBestScore(1).Pontos = 12500
-  GBestScore(2).Nome = "Top3" : GBestScore(2).Pontos = 10000
-  GBestScore(3).Nome = "Top4" : GBestScore(3).Pontos =  9000
-  GBestScore(4).Nome = "Top5" : GBestScore(4).Pontos =  8000
-  GBestScore(5).Nome = "Top6" : GBestScore(5).Pontos =  7000
-  GBestScore(6).Nome = "Top7" : GBestScore(6).Pontos =  5000
-  GBestScore(7).Nome = "Top8" : GBestScore(7).Pontos =  4000
-  GBestScore(8).Nome = "Top9" : GBestScore(8).Pontos =  3000
-  GBestScore(9).Nome = "Top10" : GBestScore(9).Pontos = 2000
+  GBestScore(0).Nome = "...." : GBestScore(0).Pontos = 0
+  GBestScore(1).Nome = "...." : GBestScore(1).Pontos = 0
+  GBestScore(2).Nome = "...." : GBestScore(2).Pontos = 0
+  GBestScore(3).Nome = "...." : GBestScore(3).Pontos = 0
+  GBestScore(4).Nome = "...." : GBestScore(4).Pontos = 0
+  GBestScore(5).Nome = "...." : GBestScore(5).Pontos = 0
+  GBestScore(6).Nome = "...." : GBestScore(6).Pontos = 0
+  GBestScore(7).Nome = "...." : GBestScore(7).Pontos = 0
+  GBestScore(8).Nome = "...." : GBestScore(8).Pontos = 0
+  GBestScore(9).Nome = "...." : GBestScore(9).Pontos = 0
 end sub
 
 ' Faz a troca de screens e ajusta o FPS
@@ -3064,8 +3065,8 @@ function CTRX as integer
   with GBoneco
     if .X < 12 then
       return .X * 32 + 16
-    elseif .X > Mina.Larg - 12 then
-      return 784 - (Mina.LArg - .X) * 32
+    elseif .X > GMina.Larg - 12 then
+      return 784 - (GMina.Larg - .X) * 32
     else
       return 399
     end if
@@ -3076,8 +3077,8 @@ function CTRY as integer
   with GBoneco
     if .Y < 8 then
       return .Y * 32 + 16
-    elseif .Y > Mina.Alt - 8 then
-      return 500 - (Mina.Alt - .Y) * 32
+    elseif .Y > GMina.Alt - 8 then
+      return 500 - (GMina.Alt - .Y) * 32
     else
       return 240
     end if
@@ -3197,7 +3198,7 @@ sub LoadMine(NMina as integer, SoQuant as integer)
   dim as ushort MinaTemp, TotMinas
   dim as ubyte Temporary1
   LimpaMina
-  Mina.Tesouros = 0
+  GMina.Tesouros = 0
   if fileexists("minas.bin") then
     open "minas.bin" for binary as #1
     FileTam = lof(1)
@@ -3207,17 +3208,17 @@ sub LoadMine(NMina as integer, SoQuant as integer)
       FilePos = 3
       if SoQuant = 0 then
         get #1,, MinaTemp
-        get #1,, Mina.LArg
-        get #1,, Mina.Alt
-        get #1,, Mina.Noturno
-        get #1,, Mina.Tempo
+        get #1,, GMina.Larg
+        get #1,, GMina.Alt
+        get #1,, GMina.Noturno
+        get #1,, GMina.Tempo
         while MinaTemp < NMina
-          FilePos = FilePos + ((Mina.Alt * Mina.Larg) * 3) + 9
+          FilePos = FilePos + ((GMina.Alt * GMina.Larg) * 3) + 9
           get #1, FilePos, MinaTemp
-          get #1,, Mina.LArg
-          get #1,, Mina.Alt
-          get #1,, Mina.Noturno
-          get #1,, Mina.Tempo
+          get #1,, GMina.Larg
+          get #1,, GMina.Alt
+          get #1,, GMina.Noturno
+          get #1,, GMina.Tempo
         wend
         LeMinaDet 0
       end if
@@ -3238,38 +3239,38 @@ sub LeMinaDet(Editando as integer)
   MXR = 0
   MYR = 0
   if Editando = 0 then
-    if Mina.Larg < 24 then MXR = (25 - Mina.Larg) \ 2
-    if Mina.alt < 16 then MYR = (17 - Mina.Alt) \ 2
-    for f = -1 to mina.larg
-      for g = -1 to mina.alt
+    if GMina.Larg < 24 then MXR = (25 - GMina.Larg) \ 2
+    if GMina.alt < 16 then MYR = (17 - GMina.Alt) \ 2
+    for f = -1 to GMina.Larg
+      for g = -1 to GMina.alt
         GObject(mxr + f, myr + g).Typ = 31
       next
     next
   end if
-  Mina.Larg -= 1
-  Mina.Alt -= 1
+  GMina.Larg -= 1
+  GMina.Alt -= 1
   ' Lê cada linha
-  for g = 0 to Mina.Alt
+  for g = 0 to GMina.Alt
     ' Le linha
-    for f = 0 to Mina.Larg
+    for f = 0 to GMina.Larg
       get #1,, Fundo(MXR + f, MYR + g)
       get #1,, Frente(MXR + f, MYR + g)
       get #1,, GObject(MXR + f, MYR + g).Typ
       ' Posição inicial do boneco
       if GObject(MXR + f, MYR + g).Typ = 85 then
-        Mina.X = MXR + f
-        Mina.Y = MYR + g
-        GBoneco.X = Mina.X
-        GBoneco.Y = Mina.Y
+        GMina.X = MXR + f
+        GMina.Y = MYR + g
+        GBoneco.X = GMina.X
+        GBoneco.Y = GMina.Y
         GObject(MXR + f, MYR + g).Typ = 0
       elseif GObjectData(GObject(MXR + f, MYR + g).Typ).Tipo = 5 then
-        Mina.Tesouros +=1
+        GMina.Tesouros +=1
       end if
     next
   next
   sleep 1, 1
-  Mina.Larg += MXR
-  Mina.Alt += MYR
+  GMina.Larg += MXR
+  GMina.Alt += MYR
   GJogo.UltExplosao = 0
   GJogo.Ciclo = 0
   Iniciado = 0
@@ -3373,11 +3374,11 @@ end sub
 
 ' Calcula o bonus de acordo com o tempo para concluir a mina
 sub CalculaBonusTempo
-  if Mina.Tempo = 0 then
+  if GMina.Tempo = 0 then
     GBonus = (300 - GBoneco.Tempo)
     if GBonus > 100 then GBonus = 100
   else
-    GBonus = (Mina.Tempo - GBoneco.Tempo)
+    GBonus = (GMina.Tempo - GBoneco.Tempo)
     if GBonus > 100 then GBonus = 100
   end if
   ConvertPointsToExtraLife GBonus
@@ -3455,10 +3456,10 @@ sub SalvaMina (ParaTestar as integer = 0)
   dim as string Linha, NArq, LMNum, GLMKey
   dim as integer nmina, MaiorX, MaiorY, ValTemp, f, g
   'zera contador de tesouros para verificar se tem
-  Mina.Tesouros = ContaTesouros ()
+  GMina.Tesouros = ContaTesouros ()
   cls
   TrocaTelas
-  if Mina.tesouros = 0 then
+  if GMina.tesouros = 0 then
     LimpaTeclado
     cls
     Mensagem 5, 8, GText(100), "", ""
@@ -3473,7 +3474,7 @@ sub SalvaMina (ParaTestar as integer = 0)
     LimpaTeclado
   else
     if ParaTestar = 0 then
-      LMNum= str(Mina.numero)
+      LMNum= str(GMina.numero)
       LimpaTeclado
       GLMKey = ""
       while (GLMKey <> chr(27)) and (GLMKey <> chr(13))
@@ -3490,8 +3491,8 @@ sub SalvaMina (ParaTestar as integer = 0)
       wend
       cls
       TrocaTelas
-      NArq = "minas/m" + right("000" & str(LMNum),3) + ".map"
-      Mina.numero= val(LMNum)
+      NArq = "minas/m" + right("000" & str(LMNum), 3) + ".map"
+      GMina.numero= val(LMNum)
     else
       NArq = "minas/teste.map"
     end if
@@ -3499,11 +3500,11 @@ sub SalvaMina (ParaTestar as integer = 0)
     if (ParaTestar <> 0) or (GLMKey = chr(13)) then
       if ParaTestar = 0 then
         GLMKey = ""
-        while inkey<>""
+        while inkey <> ""
           sleep 10, 1
         wend
-        Opcao1 = Mina.Noturno
-        while GLMKey <> " " and GLMKey <> chr(27) and GLMKey <> chr(13)
+        Opcao1 = GMina.Noturno
+        while (GLMKey <> " ") and (GLMKey <> chr(27)) and (GLMKey <> chr(13))
           cls
           Mensagem 5, 5, GText(103), GText(104), "",,, Opcao1
           GLMKey = inkey
@@ -3517,8 +3518,8 @@ sub SalvaMina (ParaTestar as integer = 0)
       end if
       if (ParaTestar <> 0) or (GLMKey <> chr(27)) then
         if ParaTestar = 0 then
-          Mina.Noturno = Opcao1
-          LMNum=str(Mina.Tempo)
+          GMina.Noturno = Opcao1
+          LMNum=str(GMina.Tempo)
           while inkey <> ""
             sleep 10
           wend
@@ -3539,29 +3540,29 @@ sub SalvaMina (ParaTestar as integer = 0)
         end if
         if (ParaTestar <> 0) or (GLMKey = chr(13)) then
           if ParaTestar = 0 then
-            Mina.Tempo=val(LMNum)
-            Mina.Alterada = 0
+            GMina.Tempo = val(LMNum)
+            GMina.Alterada = 0
             EdShow = 2
           end if
-          'Inicia gravação da mina:
-          Mina.Larg = MaiorColuna () + 1
-          Mina.Alt = MaiorLinha () + 1
-          'Salva dimensões, se é noturno/diurno e o tempo (0=livre)
+          ' Inicia gravação da mina
+          GMina.Larg = MaiorColuna + 1
+          GMina.Alt = MaiorLinha + 1
+          ' Salva dimensões, se é noturno/diurno e o tempo (0=livre)
           kill Narq
           open NArq for binary as #1
-          put #1,, Mina.Larg
-          put #1,, Mina.Alt
-          put #1,, Mina.Noturno
-          put #1,, Mina.Tempo
+          put #1,, GMina.Larg
+          put #1,, GMina.Alt
+          put #1,, GMina.Noturno
+          put #1,, GMina.Tempo
           'Escreve cada linha
-          for g=0 to Mina.Alt-1
-            for f= 0 to Mina.Larg-1
-              put #1,,fundo(f,g)
-              put #1,,frente(f,g)
+          for g = 0 to GMina.Alt - 1
+            for f = 0 to GMina.Larg - 1
+              put #1,, fundo(f, g)
+              put #1,, frente(f, g)
               if GBoneco.x = f and GBoneco.y = g then
-                GObject(f,g).Typ = 85
-                put #1,,GObject(f,g).Typ
-                GObject(f,g).Typ = 0
+                GObject(f, g).Typ = 85
+                put #1,, GObject(f, g).Typ
+                GObject(f, g).Typ = 0
               else
                 put #1,, GObject(f, g).Typ
               end if
@@ -3599,7 +3600,7 @@ end sub
 ' Rotina principal do EDITOR - pode ser mudada para um item dentro de "Joga"
 sub Edita
   dim as integer f, g
-  PosMouse = PosMouseEd()
+  PosMouse = PosMouseEd
   select case GJogo.EdStatus
   case Editando
     EdX1 = GMX \ 32
@@ -3636,7 +3637,7 @@ sub Edita
             GravaUndo
             GBoneco.x = Mapx + edx1
             GBoneco.y = Mapy + edy1
-            Mina.Alterada = 1
+            GMina.Alterada = 1
           end if
         else
           GJogo.EdStatus = Selecionando
@@ -3652,11 +3653,11 @@ sub Edita
       case EdFim
         PrimeiroItem = 100
       case EdBarra
-        PrimeiroItem = int ((GMX - 80) / 4.48)
+        PrimeiroItem = int((GMX - 80) / 4.48)
         if PrimeiroItem < 0 then PrimeiroItem = 0
         if PrimeiroItem > 100 then PrimeiroItem = 100
       case EdItem
-        ItemSel = PrimeiroItem + int (GMX / 34)
+        ItemSel = PrimeiroItem + GMX \ 34
       case EdNovo
         GJogo.EdStatus = RespNovo
       case EdAbre
@@ -3666,7 +3667,7 @@ sub Edita
         EdMovendoUndo = 0
       case EdSalva
         GJogo.EdStatus = RespSalvar
-        GUMKey = str(Mina.Numero)
+        GUMKey = str(GMina.Numero)
       case EdVisao
         EdShow = (Edshow + 1) mod 4
       case EdMudaGrid
@@ -3700,7 +3701,7 @@ sub Edita
         if GMBUp = 1 then
           GJogo.EdStatus = Editando
           GravaUndo
-          Mina.Alterada = 1
+          GMina.Alterada = 1
           for f = EDXX1 to EDXX2
             for g = EDYY1 to EDYY2
               select case ItemSel
@@ -3733,7 +3734,7 @@ sub Edita
     end if
     GJogo.EdStatus = Editando
   case RespAbrindo
-    if CloseUnsavedMineConfirmation () = 1 then
+    if CloseUnsavedMineConfirmation = 1 then
       Opcao1 = 0
       GBoneco.Mina = 0
       cls
@@ -3752,7 +3753,7 @@ sub Edita
       select case GKey
       case "U"
         if EdMovendoUndo = 0 then GravaUndo : EdMovendoUndo = 1
-        Mina.Alterada = 1
+        GMina.Alterada = 1
         for f = 0 to 99
           for g = 0 to 59
             GObject(f, g) = GObject(f, g + 1)
@@ -3764,7 +3765,7 @@ sub Edita
         GObject(GBoneco.x, GBoneco.y).Typ = 0
       case "D"
         if EdMovendoUndo = 0 then GravaUndo : EdMovendoUndo = 1
-        Mina.Alterada = 1
+        GMina.Alterada = 1
         for f = 0 to 99
           for g = 59 to 0 step -1
             GObject(f, g) = GObject(f, g - 1)
@@ -3776,7 +3777,7 @@ sub Edita
         GObject(GBoneco.x, GBoneco.y).Typ = 0
       case "R"
         if EdMovendoUndo = 0 then GravaUndo : EdMovendoUndo = 1
-        Mina.Alterada = 1
+        GMina.Alterada = 1
         for f = 99 to 0 step -1
           for g = 0 to 59
             GObject(f, g) = GObject(f - 1, g)
@@ -3788,7 +3789,7 @@ sub Edita
         GObject(GBoneco.x, GBoneco.y).Typ = 0
       case "L"
         if EdMovendoUndo = 0 then GravaUndo : EdMovendoUndo = 1
-        Mina.Alterada = 1
+        GMina.Alterada = 1
         for f = 0 to 99
           for g = 0 to 59
             GObject(f, g) = GObject(f + 1, g)
@@ -3837,7 +3838,7 @@ sub Edita
         if GMBUp = 1 then
           GJogo.EdStatus = Editando
           GravaUndo
-          Mina.Alterada = 1
+          GMina.Alterada = 1
           for f = EDXX1 to EDXX2
             for g = EDYY1 to EDYY2
               Fundo (MAPX + f, MAPY + g) = 1
@@ -3891,7 +3892,7 @@ sub Edita
     GLMKey = ""
     while (GLMKey <> " ") and (GLMKey <> chr(13)) and (GLMKey <> chr(27))
       cls
-      if Mina.Alterada = 1 then
+      if GMina.Alterada = 1 then
         Mensagem 4, 5, GText(98), GText(105), "", 400, 300, Opcao1
       else
         Mensagem 4, 5, GText(105), "", "", 400, 300, Opcao1
@@ -4031,7 +4032,7 @@ sub ClearEditorMine
     BonecoX(h) = 0
     BonecoY(h) = 0
   next
-  Mina.Alterada = 0
+  GMina.Alterada = 0
   GLMKey = ""
   GUMKey = ""
   PrimeiroItem = 0
@@ -4042,9 +4043,9 @@ sub ClearEditorMine
   MatrizRedoLimite = 0
   MatrizUndoLimite = 0
   EdMovendoUndo = 0
-  Mina.Tempo = 0
-  Mina.Numero = 0
-  Mina.Noturno = 0
+  GMina.Tempo = 0
+  GMina.Numero = 0
+  GMina.Noturno = 0
 end sub
 
 ' Pergunta se pode fechar mina não salva
@@ -4059,7 +4060,7 @@ function CloseUnsavedMineConfirmation as integer
   GLMKey = ""
   while (GLMKey <> " ") and (GLMKey <> chr(13)) and (GLMKey <> chr(27))
     cls
-    if Mina.Alterada = 1 then
+    if GMina.Alterada = 1 then
       Mensagem 4, 5, GText(98), GText(i), "", 400, 300, Opcao1
     else
       Mensagem 4, 5, GText(i), "", "", 400, 300, Opcao1
